@@ -1,13 +1,38 @@
 @extends('layouts.app')
 
 @push('styles')
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@syncfusion/ej2@20.4.38/material.css" />
 <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
 <style>
-    .chart-container { height: 500px; margin-bottom: 2rem; }
-    .table-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.04); margin-bottom: 2rem; }
-    .course-selector { max-width: 400px; margin-left: auto; }
-    #timeVsGradeChart { width: 100% !important; height: 100% !important; }
+    .chart-container { 
+        height: 500px; 
+        margin-bottom: 2rem; 
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 20px rgba(0,0,0,0.04);
+    }
+    .table-card { 
+        background: #fff; 
+        border-radius: 12px; 
+        box-shadow: 0 2px 20px rgba(0,0,0,0.04); 
+        margin-bottom: 2rem; 
+    }
+    .course-selector { 
+        max-width: 400px; 
+        margin-left: auto; 
+    }
+    .section-title {
+        font-family: 'Quicksand', sans-serif;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 1.5rem;
+    }
+    #timeVsGradeChart {
+        width: 100%;
+        height: 100%;
+        min-height: 400px;
+    }
 </style>
 @endpush
 
@@ -49,7 +74,8 @@
                     </div>
                     <div class="card-body">
                         <div class="chart-container">
-                            <canvas id="timeVsGradeChart"></canvas>
+                            <h5 class="section-title">Time Spent vs. Grade Distribution</h5>
+                            <div id="timeVsGradeChart"></div>
                         </div>
                     </div>
                 </div>
@@ -97,8 +123,8 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
 <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@syncfusion/ej2@20.4.38/dist/ej2.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize DataTable
@@ -111,54 +137,119 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize chart if we have data
     @if(isset($correlationData) && count($correlationData) > 0)
-        const ctx = document.getElementById('timeVsGradeChart').getContext('2d');
-        const chartData = {
-            datasets: [{
-                label: 'Students',
-                data: @json($correlationData->map(function($item) {
-                    return [
-                        'x' => $item->time_spent_minutes,
-                        'y' => $item->avg_grade,
-                        'name' => $item->firstname . ' ' . $item->lastname
-                    ];
-                })),
-                backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1,
-                pointRadius: 6,
-                pointHoverRadius: 8
-            }]
-        };
-        
-        const config = {
-            type: 'scatter',
-            data: chartData,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: {
-                        title: { display: true, text: 'Time Spent (minutes)' },
-                        beginAtZero: true
+        const timeVsGradeData = @json($correlationData->map(function($item) {
+            return [
+                'time_spent_minutes' => $item->time_spent_minutes,
+                'avg_grade' => $item->avg_grade,
+                'name' => $item->firstname . ' ' . $item->lastname
+            ];
+        }));
+
+        if (timeVsGradeData && timeVsGradeData.length > 0 && document.getElementById('timeVsGradeChart')) {
+            try {
+                // Load necessary Syncfusion modules
+                ej.base.enableRipple(true);
+                ej.charts.Chart.Inject(ej.charts.ScatterSeries, ej.charts.Legend, ej.charts.Tooltip);
+                
+                // Initialize chart
+                const chart = new ej.charts.Chart({
+                    title: 'Time Spent vs. Grade Distribution',
+                    titleStyle: { 
+                        fontFamily: 'Quicksand, sans-serif', 
+                        fontWeight: '600', 
+                        size: '16px',
+                        color: '#2c3e50'
                     },
-                    y: {
-                        title: { display: true, text: 'Average Grade' },
-                        beginAtZero: true
-                    }
-                },
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return context.raw.name + ': ' + context.raw.y.toFixed(2) + ' grade, ' + context.raw.x + ' min';
-                            }
+                    primaryXAxis: {
+                        title: 'Time Spent (Minutes)',
+                        valueType: 'Double',
+                        labelStyle: { 
+                            fontFamily: 'Quicksand, sans-serif', 
+                            size: '12px',
+                            color: '#7f8c8d'
+                        },
+                        titleStyle: {
+                            fontFamily: 'Quicksand, sans-serif',
+                            fontWeight: '500'
+                        },
+                        minimum: 0,
+                        edgeLabelPlacement: 'Shift'
+                    },
+                    primaryYAxis: {
+                        title: 'Average Grade',
+                        labelFormat: '{value}',
+                        minimum: 0,
+                        maximum: 100,
+                        interval: 20,
+                        labelStyle: { 
+                            fontFamily: 'Quicksand, sans-serif', 
+                            size: '12px',
+                            color: '#7f8c8d'
+                        },
+                        titleStyle: {
+                            fontFamily: 'Quicksand, sans-serif',
+                            fontWeight: '500'
                         }
+                    },
+                    series: [{
+                        dataSource: timeVsGradeData,
+                        xName: 'time_spent_minutes',
+                        yName: 'avg_grade',
+                        name: 'Students',
+                        type: 'Scatter',
+                        marker: { 
+                            width: 10, 
+                            height: 10, 
+                            fill: '#037b90',
+                            border: { width: 1, color: '#fff' }
+                        },
+                        tooltipMappingName: 'name',
+                        tooltip: {
+                            enable: true,
+                            format: '${point.x} minutes, Grade: ${point.y}',
+                            header: '<b>${point.tooltip}</b><br/>',
+                            textStyle: { fontFamily: 'Quicksand, sans-serif' }
+                        }
+                    }],
+                    legendSettings: { 
+                        visible: true,
+                        position: 'Bottom',
+                        textStyle: { fontFamily: 'Quicksand, sans-serif' }
+                    },
+                    tooltip: {
+                        enable: true,
+                        format: '${point.x} minutes<br/>Grade: ${point.y}',
+                        header: '<b>${point.tooltip}</b><br/>',
+                        textStyle: { fontFamily: 'Quicksand, sans-serif' }
+                    },
+                    theme: 'Material',
+                    background: 'transparent',
+                    load: function(args) {
+                        // Add custom styling when chart loads
+                        const selectedTheme = location.hash.split('/')[1];
+                        selectedTheme ? args.chart.theme = (selectedTheme.charAt(0).toUpperCase() + 
+                            selectedTheme.slice(1)).replace(/-dark/i, 'Dark').replace(/contrast/i, 'HighContrast') :
+                            (args.chart.theme = 'Material');
                     }
-                }
+                });
+                
+                // Render the chart
+                chart.appendTo('#timeVsGradeChart');
+                
+                // Handle window resize
+                window.addEventListener('resize', function() {
+                    chart.refresh();
+                });
+                
+            } catch (e) {
+                console.error('Error initializing chart:', e);
+                document.getElementById('timeVsGradeChart').innerHTML =
+                    '<div class="alert alert-danger">Error loading Time vs. Grade chart</div>';
             }
-        };
-        
-        new Chart(ctx, config);
+        } else {
+            document.getElementById('timeVsGradeChart').innerHTML =
+                '<div class="alert alert-warning">No data available for Time vs. Grade analysis</div>';
+        }
     @endif
 });
 </script>
