@@ -257,118 +257,135 @@ class CoursesController extends Controller
     /**
      * Get time spent vs grade data for a course
      */
+    /**
+     * Get time spent vs grade data for a course with optimized queries
+     * 
+     * @param int $courseId
+     * @return \Illuminate\Support\Collection
+     */
     private function getTimeVsGradeData($courseId)
     {
-        // First, get all enrolled users for this course
-        $enrolledUsers = DB::table('mdl_user_enrolments AS ue')
+        // Define the time window (last 6 months)
+        $timeWindow = now()->subMonths(6)->timestamp;
+        
+        // Get all enrolled users with their grades in a single query
+        $usersWithGrades = DB::table('mdl_user_enrolments AS ue')
             ->join('mdl_enrol AS e', 'ue.enrolid', '=', 'e.id')
             ->join('mdl_user AS u', 'ue.userid', '=', 'u.id')
+            ->leftJoin('mdl_grade_grades AS gg', function($join) use ($courseId) {
+                $join->on('gg.userid', '=', 'u.id')
+                    ->whereExists(function($query) use ($courseId) {
+                        $query->select(DB::raw(1))
+                            ->from('mdl_grade_items AS gi')
+                            ->whereColumn('gi.id', 'gg.itemid')
+                            ->where('gi.courseid', $courseId)
+                            ->where('gi.itemtype', 'course');
+                    });
+            })
             ->where('e.courseid', $courseId)
-            ->select('u.id', 'u.firstname', 'u.lastname')
+            ->where('u.deleted', 0)
+            ->where('u.suspended', 0)
+            ->select(
+                'u.id',
+                'u.firstname',
+                'u.lastname',
+                'gg.finalgrade as grade',
+                DB::raw('(SELECT COUNT(*) FROM mdl_logstore_standard_log l 
+                         WHERE l.userid = u.id 
+                         AND l.courseid = e.courseid 
+                         AND l.timecreated > ' . $timeWindow . ' 
+                         AND l.action IN ("viewed", "submitted", "started")) as activity_count')
+            )
             ->get();
+
+        // Process the results
+        return $usersWithGrades->map(function($user) use ($timeWindow) {
+            // Calculate time spent based on activity count (5 minutes per activity)
+            $timeSpent = $user->activity_count * 5;
             
-        $result = [];
-        
-        foreach ($enrolledUsers as $user) {
-            // Get time spent (in minutes) - limit to last 90 days for performance
-            $timeSpent = DB::table('mdl_logstore_standard_log')
-                ->where('userid', $user->id)
-                ->where('courseid', $courseId)
-                ->where('action', 'viewed')
-                ->where('timecreated', '>', time() - (90 * 24 * 60 * 60)) // Last 90 days
-                ->count() * 5; // 5 minutes per log entry
-                
-            // Skip users with no activity
-            if ($timeSpent <= 0) {
-                continue;
+            // Skip users with no activity or no grades
+            if ($timeSpent <= 0 || is_null($user->grade)) {
+                return null;
             }
             
-            // Get average grade for the course
-            $grade = DB::table('mdl_grade_grades AS gg')
-                ->join('mdl_grade_items AS gi', function($join) use ($courseId) {
-                    $join->on('gi.id', '=', 'gg.itemid')
-                         ->where('gi.courseid', $courseId)
-                         ->where('gi.itemtype', 'course');
-                })
-                ->where('gg.userid', $user->id)
-                ->avg('gg.finalgrade');
-                
-            // Skip users with no grades
-            if (is_null($grade)) {
-                continue;
-            }
-            
-            $result[] = (object)[
+            return (object)[
                 'userid' => $user->id,
                 'firstname' => $user->firstname,
                 'lastname' => $user->lastname,
                 'time_spent_minutes' => $timeSpent,
-                'avg_grade' => (float)$grade
+                'avg_grade' => (float)$user->grade
             ];
-        }
-        
-        // Sort by time spent
-        usort($result, function($a, $b) {
-            return $a->time_spent_minutes <=> $b->time_spent_minutes;
-        });
-        
-        return collect($result);
+        })->filter()->sortBy('time_spent_minutes')->values();
     }
     
     /**
      * Get detailed user data for the table
      */
+    /**
+     * Get detailed user time and grade data for a course with optimized queries
+     * 
+     * @param int $courseId
+     * @return \Illuminate\Support\Collection
+     */
     private function getUserTimeGradeData($courseId)
     {
-        // First, get all enrolled users for this course
-        $enrolledUsers = DB::table('mdl_user_enrolments AS ue')
+        // Define the time window (last 6 months)
+        $timeWindow = now()->subMonths(6)->timestamp;
+        
+        // Get all enrolled users with their activity and grades in optimized queries
+        $userActivity = DB::table('mdl_user_enrolments AS ue')
             ->join('mdl_enrol AS e', 'ue.enrolid', '=', 'e.id')
             ->join('mdl_user AS u', 'ue.userid', '=', 'u.id')
+            ->leftJoin('mdl_grade_grades AS gg', function($join) use ($courseId) {
+                $join->on('gg.userid', '=', 'u.id')
+                    ->whereExists(function($query) use ($courseId) {
+                        $query->select(DB::raw(1))
+                            ->from('mdl_grade_items AS gi')
+                            ->whereColumn('gi.id', 'gg.itemid')
+                            ->where('gi.courseid', $courseId)
+                            ->where('gi.itemtype', 'course');
+                    });
+            })
+            ->leftJoin(DB::raw('(SELECT userid, MAX(timecreated) as last_access 
+                               FROM mdl_logstore_standard_log 
+                               WHERE courseid = ' . $courseId . ' 
+                               AND action IN ("viewed", "submitted", "started")
+                               GROUP BY userid) as last_activity'), 
+                'last_activity.userid', '=', 'u.id')
             ->where('e.courseid', $courseId)
-            ->select('u.id', 'u.firstname', 'u.lastname', 'u.email')
+            ->where('u.deleted', 0)
+            ->where('u.suspended', 0)
+            ->select(
+                'u.id',
+                'u.firstname',
+                'u.lastname',
+                'u.email',
+                'gg.finalgrade as grade',
+                'last_activity.last_access',
+                DB::raw('(SELECT COUNT(*) FROM mdl_logstore_standard_log l 
+                         WHERE l.userid = u.id 
+                         AND l.courseid = e.courseid 
+                         AND l.timecreated > ' . $timeWindow . ' 
+                         AND l.action IN ("viewed", "submitted", "started")) as activity_count')
+            )
             ->orderBy('u.lastname')
             ->orderBy('u.firstname')
             ->get();
+
+        // Process the results
+        return $userActivity->map(function($user) {
+            // Calculate time spent based on activity count (5 minutes per activity)
+            $timeSpent = $user->activity_count * 5;
             
-        $result = [];
-        
-        foreach ($enrolledUsers as $user) {
-            // Get time spent (in minutes) - limit to last 90 days for performance
-            $timeSpent = DB::table('mdl_logstore_standard_log')
-                ->where('userid', $user->id)
-                ->where('courseid', $courseId)
-                ->where('action', 'viewed')
-                ->where('timecreated', '>', time() - (90 * 24 * 60 * 60)) // Last 90 days
-                ->count() * 5; // 5 minutes per log entry
-                
-            // Get last access time
-            $lastAccess = DB::table('mdl_logstore_standard_log')
-                ->where('userid', $user->id)
-                ->where('courseid', $courseId)
-                ->where('action', 'viewed')
-                ->max('timecreated');
-                
-            // Get average grade for the course
-            $grade = DB::table('mdl_grade_grades AS gg')
-                ->join('mdl_grade_items AS gi', function($join) use ($courseId) {
-                    $join->on('gi.id', '=', 'gg.itemid')
-                         ->where('gi.courseid', $courseId)
-                         ->where('gi.itemtype', 'course');
-                })
-                ->where('gg.userid', $user->id)
-                ->avg('gg.finalgrade');
-                
-            $result[] = (object)[
+            return (object)[
                 'userid' => $user->id,
                 'firstname' => $user->firstname,
                 'lastname' => $user->lastname,
                 'email' => $user->email,
                 'time_spent_minutes' => $timeSpent,
-                'avg_grade' => $grade ? (float)$grade : null,
-                'last_accessed' => $lastAccess ? date('Y-m-d H:i:s', $lastAccess) : null
+                'avg_grade' => $user->grade ? (float)$user->grade : null,
+                'last_accessed' => $user->last_access ? date('Y-m-d H:i:s', $user->last_access) : null
             ];
-        }
-        
-        return collect($result);
+        });
     }
 }
