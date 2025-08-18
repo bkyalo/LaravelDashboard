@@ -116,11 +116,11 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 label: 'Students',
                 data: @json($correlationData->map(function($item) {
-                    return {
-                        x: $item->time_spent_minutes,
-                        y: $item->avg_grade,
-                        name: $item->firstname + ' ' + $item->lastname
-                    };
+                    return [
+                        'x' => $item->time_spent_minutes,
+                        'y' => $item->avg_grade,
+                        'name' => $item->firstname . ' ' . $item->lastname
+                    ];
                 })),
                 backgroundColor: 'rgba(54, 162, 235, 0.7)',
                 borderColor: 'rgba(54, 162, 235, 1)',
