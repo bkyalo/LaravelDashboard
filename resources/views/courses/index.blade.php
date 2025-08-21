@@ -2,6 +2,9 @@
 
 @push('styles')
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.4.1/css/responsive.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.min.css">
 <style>
     /* Table Styles */
     .table-card {
@@ -213,6 +216,75 @@
         margin-bottom: 2rem;
     }
     
+    /* Pagination styles */
+    .pagination {
+        gap: 0.5rem;
+    }
+    
+    .page-link {
+        border: 1px solid #e2e8f0;
+        color: #475569;
+        font-weight: 500;
+        padding: 0.5rem 1rem;
+        border-radius: 8px !important;
+        transition: all 0.2s ease;
+    }
+    
+    .page-link:hover {
+        background-color: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #3b82f6;
+    }
+    
+    .page-item.active .page-link {
+        background-color: #3b82f6;
+        border-color: #3b82f6;
+        color: white;
+    }
+    
+    .page-item.disabled .page-link {
+        background-color: #f8fafc;
+        color: #94a3b8;
+    }
+    
+    /* Sort links */
+    .sort-link {
+        color: #94a3b8;
+        margin-left: 0.25rem;
+        text-decoration: none;
+    }
+    
+    .sort-link:hover {
+        color: #3b82f6;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .table-card .card-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+        
+        .table-card .card-header .d-flex {
+            width: 100%;
+        }
+        
+        .table-card .card-header form {
+            width: 100%;
+            max-width: 100%;
+        }
+        
+        .table-card .card-header input[type="text"] {
+            width: 100% !important;
+        }
+        
+        .pagination {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+    }
+    
     @media (max-width: 768px) {
         .chart-container {
             height: 1000px; /* Increased from 600px for better mobile view */
@@ -318,7 +390,53 @@
 @endpush
 
 @push('scripts')
+<!-- Load jQuery first -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Load Chart.js for charts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+
+<script>
+// Function to update URL parameters without page reload
+function updateUrlParameter(param, value) {
+    const url = new URL(window.location.href);
+    url.searchParams.set(param, value);
+    window.history.pushState({}, '', url);
+}
+
+// Handle sort direction toggle
+function toggleSortDirection(currentDir) {
+    return currentDir === 'asc' ? 'desc' : 'asc';
+}
+
+// Initialize tooltips
+function initTooltips() {
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+}
+
+// Initialize when document is ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    initTooltips();
+    
+    // Handle search form submission
+    const searchForm = document.querySelector('form[action="{{ route('courses.index') }}"]');
+    if (searchForm) {
+        searchForm.addEventListener('submit', function(e) {
+            const searchInput = this.querySelector('input[name="search"]');
+            if (!searchInput.value.trim()) {
+                // Remove search parameter if search is empty
+                const url = new URL(window.location.href);
+                url.searchParams.delete('search');
+                window.location.href = url.toString();
+                e.preventDefault();
+            }
+        });
+    }
+});
+</script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const ctx = document.getElementById('coursesByCategoryChart').getContext('2d');
@@ -446,6 +564,118 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Initialize DataTable with server-side processing
+$(document).ready(function() {
+    // Check if jQuery is loaded
+    if (typeof jQuery == 'undefined') {
+        console.error('jQuery is not loaded');
+        return;
+    }
+
+    // Check if DataTable is available
+    if (typeof $.fn.DataTable === 'undefined') {
+        console.error('DataTables is not loaded');
+        return;
+    }
+
+    const table = $('#courses-table').DataTable({
+        processing: true,
+        serverSide: true,
+        responsive: true,
+        ajax: {
+            url: '{{ route("courses.data") }}', // We'll create this route next
+            type: 'GET',
+            data: function(d) {
+                // You can add additional parameters here if needed
+            },
+            dataSrc: function(json) {
+                $('#courses-count').text(`Showing ${json.recordsFiltered} courses`);
+                return json.data;
+            },
+            error: function(xhr, error, thrown) {
+                console.error('DataTables error:', error);
+                $('#courses-count').text('Error loading courses');
+                return [];
+            }
+        },
+        columns: [
+            { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
+            { 
+                data: 'course_name', 
+                name: 'course_name',
+                render: function(data, type, row) {
+                    if (type === 'display') {
+                        return `<span class="text-truncate d-inline-block" style="max-width: 300px;" title="${data}">${data}</span>`;
+                    }
+                    return data;
+                }
+            },
+            { 
+                data: 'student_count', 
+                name: 'student_count',
+                className: 'text-center',
+                render: function(data) {
+                    return `<span class="badge bg-primary bg-opacity-10 text-primary">${parseInt(data).toLocaleString()}</span>`;
+                }
+            },
+            { 
+                data: 'instructor_count', 
+                name: 'instructor_count',
+                className: 'text-center',
+                render: function(data) {
+                    return `<span class="badge bg-info bg-opacity-10 text-info">${parseInt(data).toLocaleString()}</span>`;
+                }
+            },
+            { 
+                data: null,
+                className: 'text-center fw-bold',
+                render: function(data) {
+                    const total = parseInt(data.student_count) + parseInt(data.instructor_count);
+                    return total.toLocaleString();
+                },
+                orderable: false
+            },
+            { 
+                data: 'visible',
+                name: 'visible',
+                render: function(data) {
+                    return data == 1 
+                        ? '<span class="badge bg-success-light"><i class="bi bi-check-circle-fill"></i> Active</span>'
+                        : '<span class="badge bg-danger-light"><i class="bi bi-eye-slash-fill"></i> Hidden</span>';
+                }
+            }
+        ],
+        order: [[1, 'asc']], // Default sort by course name
+        pageLength: 10,
+        lengthMenu: [10, 25, 50, 100],
+        dom: '<"row"<"col-md-6"l><"col-md-6"f>>rt<"row"<"col-md-6"i><"col-md-6"p>>', // Custom DOM layout
+        language: {
+            search: "_INPUT_",
+            searchPlaceholder: "Search courses...",
+            lengthMenu: "Show _MENU_ courses per page",
+            zeroRecords: "No courses found",
+            info: "Showing _START_ to _END_ of _TOTAL_ courses",
+            infoEmpty: "No courses available",
+            infoFiltered: "(filtered from _MAX_ total courses)",
+            paginate: {
+                first: "First",
+                last: "Last",
+                next: "<i class='bi bi-chevron-right'></i>",
+                previous: "<i class='bi bi-chevron-left'></i>"
+            }
+        },
+        drawCallback: function() {
+            $('.dataTables_paginate > .pagination').addClass('pagination-rounded');
+        }
+    });
+
+    // Add custom search input
+    $('.dataTables_filter input')
+        .attr('placeholder', 'Search courses...')
+        .addClass('form-control form-control-sm')
+        .css('width', '250px', 'display', 'inline-block');
+});
 </script>
 @endpush
 
@@ -550,10 +780,11 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 
-    <!-- Top Enrolled Courses Table -->
-    <div class="row">
-        <div class="col-12">
-            <div class="table-card">
+    <!-- Courses Enrollment Stats Row -->
+    <div class="row g-4">
+        <!-- Top Enrolled Courses -->
+        <div class="col-lg-6">
+            <div class="table-card h-100">
                 <div class="card-header">
                     <h2 class="card-title">Top Enrolled Courses</h2>
                 </div>
@@ -563,7 +794,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <tr>
                                 <th>#</th>
                                 <th>Course Name</th>
-                                <th>Short Name</th>
                                 <th>Enrollments</th>
                                 <th>Status</th>
                             </tr>
@@ -572,17 +802,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             @forelse($topEnrolledCourses as $index => $course)
                             <tr>
                                 <td>{{ $index + 1 }}</td>
-                                <td>
-                                    <div class="d-flex align-items-center">
-                                        <div class="ms-3">
-                                            <div class="fw-bold">{{ $course->course_name }}</div>
-                                        </div>
-                                    </div>
+                                <td class="text-truncate" style="max-width: 200px;" title="{{ $course->course_name }}">
+                                    {{ $course->course_name }}
                                 </td>
-                                <td>{{ $course->shortname }}</td>
                                 <td>
                                     <span class="enrollment-count">
-                                        <i class="bi bi-people-fill"></i>
+                                        <i class="bi bi-people-fill text-primary"></i>
                                         {{ number_format($course->enrollment_count) }}
                                     </span>
                                 </td>
@@ -596,7 +821,55 @@ document.addEventListener('DOMContentLoaded', function() {
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="5" class="text-center">No courses found.</td>
+                                <td colspan="4" class="text-center">No courses found.</td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Least Enrolled Courses -->
+        <div class="col-lg-6">
+            <div class="table-card h-100">
+                <div class="card-header">
+                    <h2 class="card-title">Least Enrolled Courses</h2>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Course Name</th>
+                                <th>Enrollments</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($leastEnrolledCourses as $index => $course)
+                            <tr>
+                                <td>{{ $index + 1 }}</td>
+                                <td class="text-truncate" style="max-width: 200px;" title="{{ $course->course_name }}">
+                                    {{ $course->course_name }}
+                                </td>
+                                <td>
+                                    <span class="enrollment-count">
+                                        <i class="bi bi-people-fill text-primary"></i>
+                                        {{ number_format($course->enrollment_count) }}
+                                    </span>
+                                </td>
+                                <td>
+                                    @if($course->visible)
+                                        <span class="badge bg-success-light"><i class="bi bi-check-circle-fill"></i> Active</span>
+                                    @else
+                                        <span class="badge bg-danger-light"><i class="bi bi-eye-slash-fill"></i> Hidden</span>
+                                    @endif
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="4" class="text-center">No courses found.</td>
                             </tr>
                             @endforelse
                         </tbody>
@@ -606,45 +879,109 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 
-    {{-- <!-- Recently Modified Courses Table -->
-    <div class="row">
+    <!-- All Courses Table -->
+    <div class="row mt-4">
         <div class="col-12">
             <div class="table-card">
-                <div class="card-header">
-                    <h2 class="card-title">Recently Modified Courses</h2>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="card-title mb-0">All Courses</h2>
+                    <div class="d-flex align-items-center gap-3">
+                        <form action="{{ route('courses.index') }}" method="GET" class="d-flex align-items-center">
+                            <input type="text" name="search" class="form-control form-control-sm shadow-sm" 
+                                   placeholder="Search courses..." value="{{ request('search') }}" 
+                                   style="width: 250px; border-radius: 8px;">
+                            <button type="submit" class="btn btn-primary btn-sm ms-2" style="border-radius: 8px;">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </form>
+                        <span class="text-muted" id="courses-count">
+                            @if($allCourses->total() > 0)
+                                Showing {{ $allCourses->firstItem() }} to {{ $allCourses->lastItem() }} of {{ $allCourses->total() }} courses
+                            @else
+                                No courses found
+                            @endif
+                        </span>
+                    </div>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                    <table class="table table-hover align-middle w-100">
                         <thead>
                             <tr>
-                                <th>Course Name</th>
-                                <th>Short Name</th>
-                                <th>Last Modified</th>
+                                <th class="text-center" style="width: 5%;">
+                                    #
+                                    <a href="{{ route('courses.index', array_merge(request()->query(), ['sort_by' => 'id', 'sort_dir' => request('sort_by') === 'id' && request('sort_dir') === 'asc' ? 'desc' : 'asc'])) }}" class="sort-link">
+                                        <i class="bi {{ request('sort_by') === 'id' && request('sort_dir') === 'asc' ? 'bi-sort-up' : 'bi-sort-down' }}"></i>
+                                    </a>
+                                </th>
+                                <th>
+                                    Course Name
+                                    <a href="{{ route('courses.index', array_merge(request()->query(), ['sort_by' => 'course_name', 'sort_dir' => request('sort_by') === 'course_name' && request('sort_dir') === 'asc' ? 'desc' : 'asc'])) }}" class="sort-link">
+                                        <i class="bi {{ request('sort_by') === 'course_name' && request('sort_dir') === 'asc' ? 'bi-sort-up' : 'bi-sort-down' }}"></i>
+                                    </a>
+                                </th>
+                                <th class="text-center" style="width: 15%;">
+                                    Students
+                                    <a href="{{ route('courses.index', array_merge(request()->query(), ['sort_by' => 'student_count', 'sort_dir' => request('sort_by') === 'student_count' && request('sort_dir') === 'asc' ? 'desc' : 'asc'])) }}" class="sort-link">
+                                        <i class="bi {{ request('sort_by') === 'student_count' && request('sort_dir') === 'asc' ? 'bi-sort-up' : 'bi-sort-down' }}"></i>
+                                    </a>
+                                </th>
+                                <th class="text-center" style="width: 15%;">
+                                    Instructors
+                                    <a href="{{ route('courses.index', array_merge(request()->query(), ['sort_by' => 'instructor_count', 'sort_dir' => request('sort_by') === 'instructor_count' && request('sort_dir') === 'asc' ? 'desc' : 'asc'])) }}" class="sort-link">
+                                        <i class="bi {{ request('sort_by') === 'instructor_count' && request('sort_dir') === 'asc' ? 'bi-sort-up' : 'bi-sort-down' }}"></i>
+                                    </a>
+                                </th>
+                                <th class="text-center" style="width: 15%;">Total</th>
+                                <th style="width: 15%;">
+                                    Status
+                                    <a href="{{ route('courses.index', array_merge(request()->query(), ['sort_by' => 'visible', 'sort_dir' => request('sort_by') === 'visible' && request('sort_dir') === 'asc' ? 'desc' : 'asc'])) }}" class="sort-link">
+                                        <i class="bi {{ request('sort_by') === 'visible' && request('sort_dir') === 'asc' ? 'bi-sort-up' : 'bi-sort-down' }}"></i>
+                                    </a>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($recentlyModified as $course)
-                            <tr>
-                                <td>{{ $course->fullname }}</td>
-                                <td>{{ $course->shortname }}</td>
-                                <td class="text-nowrap">
-                                    <span class="d-flex align-items-center">
-                                        <i class="bi bi-clock-history me-2 text-muted"></i>
-                                        {{ $course->last_modified }}
-                                    </span>
-                                </td>
-                            </tr>
+                            @forelse($allCourses as $index => $course)
+                                <tr>
+                                    <td class="text-center">{{ $allCourses->firstItem() + $index }}</td>
+                                    <td class="text-truncate" style="max-width: 300px;" title="{{ $course->course_name }}">
+                                        {{ $course->course_name }}
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-primary bg-opacity-10 text-primary">
+                                            {{ number_format($course->student_count) }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-info bg-opacity-10 text-info">
+                                            {{ number_format($course->instructor_count) }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center fw-bold">
+                                        {{ number_format($course->student_count + $course->instructor_count) }}
+                                    </td>
+                                    <td>
+                                        @if($course->visible)
+                                            <span class="badge bg-success-light"><i class="bi bi-check-circle-fill me-1"></i> Active</span>
+                                        @else
+                                            <span class="badge bg-danger-light"><i class="bi bi-eye-slash-fill me-1"></i> Hidden</span>
+                                        @endif
+                                    </td>
+                                </tr>
                             @empty
-                            <tr>
-                                <td colspan="3" class="text-center">No recently modified courses found.</td>
-                            </tr>
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <i class="bi bi-inbox fs-1 text-muted"></i>
+                                        <p class="mt-2 mb-0">No courses found</p>
+                                    </td>
+                                </tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
-    </div> --}}
+    </div>
 
     <!-- Courses Per Category Chart -->
     <div class="row">

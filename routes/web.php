@@ -27,4 +27,5 @@ Route::get('/users', [UsersController::class, 'index'])->name('users.index');
 
 // Courses Management
 Route::get('/courses', [CoursesController::class, 'index'])->name('courses.index');
+Route::get('/courses/data', [CoursesController::class, 'getCoursesData'])->name('courses.data');
 Route::get('/courses/time-vs-grades', [CoursesController::class, 'timeVsGrades'])->name('courses.time-vs-grades');

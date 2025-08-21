@@ -8,7 +8,7 @@ use Carbon\Carbon;
 
 class CoursesController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         try {
             // Get current and previous month dates
@@ -51,12 +51,64 @@ class CoursesController extends Controller
                 ];
             }
 
+            // Handle courses table with pagination, search, and sorting
+            $perPage = 10;
+            $search = $request->input('search');
+            $sortBy = $request->input('sort_by', 'fullname');
+            $sortDir = $request->input('sort_dir', 'asc');
+
+            // Base query for all courses
+            $query = DB::table('mdl_course as c')
+                ->select(
+                    'c.id',
+                    'c.fullname as course_name',
+                    'c.visible',
+                    DB::raw('(SELECT COUNT(DISTINCT ue.userid) 
+                             FROM mdl_enrol e 
+                             JOIN mdl_user_enrolments ue ON e.id = ue.enrolid 
+                             JOIN mdl_role_assignments ra ON ra.userid = ue.userid 
+                             JOIN mdl_role r ON ra.roleid = r.id 
+                             WHERE e.courseid = c.id AND r.shortname = "student") as student_count'),
+                    DB::raw('(SELECT COUNT(DISTINCT ue.userid) 
+                             FROM mdl_enrol e 
+                             JOIN mdl_user_enrolments ue ON e.id = ue.enrolid 
+                             JOIN mdl_role_assignments ra ON ra.userid = ue.userid 
+                             JOIN mdl_role r ON ra.roleid = r.id 
+                             WHERE e.courseid = c.id AND r.shortname IN ("editingteacher", "teacher")) as instructor_count')
+                )
+                ->where('c.id', '!=', 1); // Skip the front page
+
+            // Apply search filter
+            if ($search) {
+                $query->where('c.fullname', 'LIKE', "%{$search}%");
+            }
+
+            // Apply sorting
+            $sortableColumns = [
+                'id' => 'c.id',
+                'course_name' => 'c.fullname',
+                'student_count' => 'student_count',
+                'instructor_count' => 'instructor_count',
+                'visible' => 'c.visible'
+            ];
+
+            if (array_key_exists($sortBy, $sortableColumns)) {
+                $query->orderBy($sortableColumns[$sortBy], $sortDir === 'desc' ? 'desc' : 'asc');
+            }
+
+            // Get paginated results
+            $allCourses = $query->paginate($perPage)
+                ->appends([
+                    'search' => $search,
+                    'sort_by' => $sortBy,
+                    'sort_dir' => $sortDir
+                ]);
+
             // Get top 10 most enrolled courses
             $topEnrolledCourses = DB::table('mdl_course as c')
                 ->select(
                     'c.id',
                     'c.fullname as course_name',
-                    'c.shortname',
                     'c.visible',
                     DB::raw('COUNT(ue.id) as enrollment_count')
                 )
@@ -64,8 +116,26 @@ class CoursesController extends Controller
                 ->leftJoin('mdl_user_enrolments as ue', 'e.id', '=', 'ue.enrolid')
                 ->where('c.id', '!=', 1) // Skip the front page
                 ->where('c.visible', 1) // Only visible courses
-                ->groupBy('c.id', 'c.fullname', 'c.shortname', 'c.visible')
+                ->groupBy('c.id', 'c.fullname', 'c.visible')
                 ->orderByDesc('enrollment_count')
+                ->take(10)
+                ->get();
+                
+            // Get bottom 10 least enrolled courses
+            $leastEnrolledCourses = DB::table('mdl_course as c')
+                ->select(
+                    'c.id',
+                    'c.fullname as course_name',
+                    'c.visible',
+                    DB::raw('COUNT(ue.id) as enrollment_count')
+                )
+                ->leftJoin('mdl_enrol as e', 'c.id', '=', 'e.courseid')
+                ->leftJoin('mdl_user_enrolments as ue', 'e.id', '=', 'ue.enrolid')
+                ->where('c.id', '!=', 1) // Skip the front page
+                ->where('c.visible', 1) // Only visible courses
+                ->groupBy('c.id', 'c.fullname', 'c.visible')
+                ->having('enrollment_count', '>', 0) // Only include courses with at least one enrollment
+                ->orderBy('enrollment_count')
                 ->take(10)
                 ->get();
 
@@ -97,19 +167,28 @@ class CoursesController extends Controller
 
             // Get courses per category
             $coursesPerCategory = $this->getCoursesPerCategory();
-            
+
             return view('courses.index', [
                 'stats' => $stats,
                 'topEnrolledCourses' => $topEnrolledCourses,
+                'leastEnrolledCourses' => $leastEnrolledCourses,
                 'recentlyModified' => $recentlyModified,
                 'creationStats' => $creationStats,
-                'coursesPerCategory' => $coursesPerCategory
+                'coursesPerCategory' => $coursesPerCategory,
+                'allCourses' => $allCourses,
+                'search' => $search,
+                'sortBy' => $sortBy,
+                'sortDir' => $sortDir
             ]);
 
         } catch (\Exception $e) {
             // Log the full error with stack trace
             $errorMessage = 'Error in CoursesController: ' . $e->getMessage() . '\n' . $e->getTraceAsString();
             \Log::error($errorMessage);
+            
+            if (request()->ajax()) {
+                return response()->json(['error' => 'Failed to load courses. Please try again.'], 500);
+            }
             
             // Show the error directly on the screen
             $errorDetails = [
@@ -258,20 +337,6 @@ class CoursesController extends Controller
      * Get time spent vs grade data for a course
      */
     /**
-     * Get time spent vs grade data for a course with optimized queries
-     * 
-     * @param int $courseId
-     * @return \Illuminate\Support\Collection
-     */
-    private function getTimeVsGradeData($courseId)
-    {
-        // Define the time window (last 6 months)
-        $timeWindow = now()->subMonths(6)->timestamp;
-        
-        // Get all enrolled users with their grades in a single query
-        $usersWithGrades = DB::table('mdl_user_enrolments AS ue')
-            ->join('mdl_enrol AS e', 'ue.enrolid', '=', 'e.id')
-            ->join('mdl_user AS u', 'ue.userid', '=', 'u.id')
             ->leftJoin('mdl_grade_grades AS gg', function($join) use ($courseId) {
                 $join->on('gg.userid', '=', 'u.id')
                     ->whereExists(function($query) use ($courseId) {
@@ -387,5 +452,93 @@ class CoursesController extends Controller
                 'last_accessed' => $user->last_access ? date('Y-m-d H:i:s', $user->last_access) : null
             ];
         });
+    }
+
+    /**
+     * Get courses data for DataTables
+     */
+    public function getCoursesData()
+    {
+        try {
+            $query = DB::table('mdl_course as c')
+                ->select(
+                    'c.id',
+                    'c.fullname as course_name',
+                    'c.visible',
+                    DB::raw('(SELECT COUNT(DISTINCT ue.userid) 
+                             FROM mdl_enrol e 
+                             JOIN mdl_user_enrolments ue ON e.id = ue.enrolid 
+                             JOIN mdl_role_assignments ra ON ra.userid = ue.userid 
+                             JOIN mdl_role r ON ra.roleid = r.id 
+                             WHERE e.courseid = c.id AND r.shortname = "student") as student_count'),
+                    DB::raw('(SELECT COUNT(DISTINCT ue.userid) 
+                             FROM mdl_enrol e 
+                             JOIN mdl_user_enrolments ue ON e.id = ue.enrolid 
+                             JOIN mdl_role_assignments ra ON ra.userid = ue.userid 
+                             JOIN mdl_role r ON ra.roleid = r.id 
+                             WHERE e.courseid = c.id AND r.shortname IN ("editingteacher", "teacher")) as instructor_count')
+                )
+                ->where('c.id', '!=', 1); // Skip the front page
+
+            // Handle search
+            if (request()->has('search') && !empty(request('search')['value'])) {
+                $search = request('search')['value'];
+                $query->where('c.fullname', 'LIKE', "%{$search}%");
+            }
+
+            // Handle sorting
+            if (request()->has('order')) {
+                $orderColumn = request('order')[0]['column'];
+                $orderDir = request('order')[0]['dir'];
+                $columns = [
+                    'c.id',
+                    'c.fullname',
+                    'student_count',
+                    'instructor_count',
+                    'c.visible'
+                ];
+                
+                if (isset($columns[$orderColumn])) {
+                    $query->orderBy($columns[$orderColumn], $orderDir);
+                }
+            } else {
+                $query->orderBy('c.fullname', 'asc');
+            }
+
+            // Get total records count
+            $totalRecords = $query->count();
+            
+            // Apply pagination
+            $perPage = request('length', 10);
+            $page = request('start', 0) / $perPage + 1;
+            
+            $courses = $query->paginate($perPage, ['*'], 'page', $page);
+
+            // Format data for DataTables
+            $data = [];
+            foreach ($courses as $index => $course) {
+                $data[] = [
+                    'DT_RowIndex' => $courses->firstItem() + $index,
+                    'course_name' => $course->course_name,
+                    'student_count' => $course->student_count,
+                    'instructor_count' => $course->instructor_count,
+                    'visible' => $course->visible,
+                ];
+            }
+
+            return response()->json([
+                'draw' => request('draw', 1),
+                'recordsTotal' => $totalRecords,
+                'recordsFiltered' => $courses->total(),
+                'data' => $data
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error in getCoursesData: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to load courses data',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 }
