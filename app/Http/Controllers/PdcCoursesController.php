@@ -49,13 +49,15 @@ class PdcCoursesController extends Controller
                 ];
             }
 
-            // Handle courses table with pagination, search, and sorting
-            $perPage = 10;
+            // Get enrollments by category for the chart
+            $enrollmentsByCategory = $this->getEnrollmentsByCategory();
+            
+            // Get PDC courses with pagination and search
             $search = $request->input('search');
             $sortBy = $request->input('sort_by', 'fullname');
             $sortDir = $request->input('sort_dir', 'asc');
-
-            // Base query for PDC courses (courses with 'PDC' in shortname)
+            $perPage = 15;
+            
             $query = DB::table('mdl_course as c')
                 ->select(
                     'c.id',
@@ -77,8 +79,8 @@ class PdcCoursesController extends Controller
                              JOIN mdl_role r ON ra.roleid = r.id 
                              WHERE e.courseid = c.id AND r.shortname IN ("editingteacher", "teacher")) as instructor_count')
                 )
-                ->where('c.id', '!=', 1) // Skip the front page
-                ->where('c.shortname', 'LIKE', '%PDC%'); // Only PDC courses
+                ->where('c.id', '!=', 1)
+                ->where('c.shortname', 'LIKE', '%PDC%');
 
             // Apply search filter
             if ($search) {
@@ -173,9 +175,10 @@ class PdcCoursesController extends Controller
                 'coursesWithoutEnrollments' => $coursesWithoutEnrollments,
                 'recentlyModified' => $recentlyModified,
                 'coursesPerCategory' => $coursesPerCategory,
-                'search' => $search,
-                'sortBy' => $sortBy,
-                'sortDir' => $sortDir
+                'enrollmentsByCategory' => $enrollmentsByCategory,
+                'search' => $request->input('search', ''),
+                'sortBy' => $request->input('sort_by', 'fullname'),
+                'sortDir' => $request->input('sort_dir', 'asc')
             ]);
 
         } catch (\Exception $e) {
@@ -256,6 +259,29 @@ class PdcCoursesController extends Controller
             ->havingRaw('COUNT(ue.id) = 0')
             ->get()
             ->count();
+    }
+    
+    /**
+     * Get enrollments count by category for PDC courses
+     * 
+     * @return \Illuminate\Support\Collection
+     */
+    private function getEnrollmentsByCategory()
+    {
+        return DB::table('mdl_course as c')
+            ->select(
+                'cc.name as category_name',
+                DB::raw('COUNT(DISTINCT ue.userid) as enrollments_count')
+            )
+            ->join('mdl_enrol as e', 'c.id', '=', 'e.courseid')
+            ->join('mdl_user_enrolments as ue', 'e.id', '=', 'ue.enrolid')
+            ->join('mdl_course_categories as cc', 'c.category', '=', 'cc.id')
+            ->where('c.shortname', 'LIKE', '%PDC%')
+            ->where('c.id', '!=', 1)
+            ->groupBy('cc.id', 'cc.name')
+            ->having('enrollments_count', '>', 0)
+            ->orderBy('enrollments_count', 'desc')
+            ->get();
     }
             
     private function getTotalEnrollments($date = null)

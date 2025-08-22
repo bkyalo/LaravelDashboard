@@ -2,17 +2,57 @@
 
 @push('styles')
 <style>
-    .table-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.04); margin-bottom: 2rem; }
-    .stat-card { border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; border-left: 4px solid; }
+    /* Card Styles */
+    .table-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 20px rgba(0,0,0,0.04);
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+    }
+
+    .stat-card {
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid;
+        background: #fff;
+    }
+
     .stat-card-1 { border-color: #3b82f6; }
     .stat-card-2 { border-color: #10b981; }
     .stat-card-3 { border-color: #f59e0b; }
     .stat-card-4 { border-color: #8b5cf6; }
     .stat-card-5 { border-color: #ef4444; }
-    .chart-container { height: 500px; position: relative; }
-    .sort-link { color: #94a3b8; text-decoration: none; margin-left: 0.5rem; }
-    .sort-link:hover { color: #3b82f6; }
+
+    /* Chart Container */
+    .chart-container {
+        height: 400px;
+        position: relative;
+        margin: 1.5rem 0;
+    }
+
+    /* Sort Link */
+    .sort-link {
+        color: #94a3b8;
+        text-decoration: none;
+        margin-left: 0.5rem;
+        transition: color 0.2s ease;
+    }
+    .sort-link:hover {
+        color: #3b82f6;
+    }
+
     /* Pagination Styles */
+    .pagination-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
     .pagination {
         --bs-pagination-padding-x: 0.75rem;
         --bs-pagination-padding-y: 0.375rem;
@@ -34,135 +74,114 @@
         --bs-pagination-disabled-bg: #fff;
         --bs-pagination-disabled-border-color: #e5e7eb;
     }
-    
+
+    .pagination .page-item {
+        margin: 0 0.25rem;
+    }
+
     .pagination .page-link {
         min-width: 2.5rem;
         height: 2.5rem;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        margin: 0 0.25rem;
-        border-radius: 0.5rem;
+        border-radius: var(--bs-pagination-border-radius);
         font-weight: 500;
         transition: all 0.2s ease-in-out;
-        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        padding: var(--bs-pagination-padding-y) var(--bs-pagination-padding-x);
+        color: var(--bs-pagination-color);
+        background: var(--bs-pagination-bg);
+        border: var(--bs-pagination-border-width) solid var(--bs-pagination-border-color);
     }
-    
+
     .pagination .page-item.active .page-link {
+        color: var(--bs-pagination-active-color);
+        background: var(--bs-pagination-active-bg);
+        border-color: var(--bs-pagination-active-border-color);
         font-weight: 600;
-        box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3), 0 2px 4px -1px rgba(59, 130, 246, 0.2);
+        box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
     }
-    
-    .pagination .page-item:first-child .page-link,
-    .pagination .page-item:last-child .page-link {
-        padding: 0 1rem;
-    }
-    
+
     .pagination .page-item:not(.active) .page-link:hover {
+        color: var(--bs-pagination-hover-color);
+        background: var(--bs-pagination-hover-bg);
+        border-color: var(--bs-pagination-hover-border-color);
         transform: translateY(-1px);
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
-    
+
     .pagination .page-item.disabled .page-link {
+        color: var(--bs-pagination-disabled-color);
+        background: var(--bs-pagination-disabled-bg);
+        border-color: var(--bs-pagination-disabled-border-color);
         opacity: 0.6;
+        cursor: not-allowed;
     }
-    
-    /* Pagination info */
+
+    /* Pagination Info */
     .pagination-info {
         font-size: 0.875rem;
         color: #6b7280;
         font-weight: 500;
+        padding: 0.5rem;
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .chart-container {
+            height: 300px;
+        }
+        .table-card {
+            padding: 1rem;
+        }
+        .stat-card {
+            padding: 1rem;
+        }
     }
 </style>
 @endpush
 
 @section('content')
-<div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+<div class="container-fluid py-5">
+    <div class="d-flex justify-content-between align-items-center mb-5">
         <h1 class="h3 mb-0 text-dark">PDC Courses Management</h1>
     </div>
 
     <!-- Stats Cards -->
-    <div class="row g-4 mb-4">
+    <div class="row g-4 mb-5">
+        @foreach([
+            ['title' => 'Total PDC Courses', 'stat' => 'total_courses', 'icon' => 'bi-collection-play', 'color' => 'stat-card-1', 'icon_color' => 'text-primary'],
+            ['title' => 'Total Enrollments', 'stat' => 'total_enrollments', 'icon' => 'bi-people', 'color' => 'stat-card-2', 'icon_color' => 'text-success'],
+            ['title' => 'New This Month', 'stat' => 'new_courses', 'icon' => 'bi-plus-circle', 'color' => 'stat-card-3', 'icon_color' => 'text-warning'],
+            ['title' => 'No Enrollments', 'stat' => 'courses_without_enrollments', 'icon' => 'bi-person-x', 'color' => 'stat-card-5', 'icon_color' => 'text-danger']
+        ] as $card)
         <div class="col-md-3">
-            <div class="stat-card stat-card-1">
+            <div class="stat-card {{ $card['color'] }}">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="text-uppercase text-muted mb-1">Total PDC Courses</h6>
-                        <h3 class="mb-0">{{ number_format($stats['total_courses']['current']) }}</h3>
-                        @if($stats['total_courses']['has_change'])
-                        <small class="text-{{ $stats['total_courses']['is_positive'] ? 'success' : 'danger' }}">
-                            <i class="bi {{ $stats['total_courses']['is_positive'] ? 'bi-arrow-up' : 'bi-arrow-down' }}"></i>
-                            {{ abs($stats['total_courses']['percentage']) }}% from last month
+                        <h6 class="text-uppercase text-muted mb-2">{{ $card['title'] }}</h6>
+                        <h3 class="mb-2">{{ number_format($stats[$card['stat']]['current']) }}</h3>
+                        @if($stats[$card['stat']]['has_change'])
+                        <small class="text-{{ $stats[$card['stat']]['is_positive'] ? 'success' : 'danger' }}">
+                            <i class="bi {{ $stats[$card['stat']]['is_positive'] ? 'bi-arrow-up' : 'bi-arrow-down' }}"></i>
+                            {{ abs($stats[$card['stat']]['percentage']) }}% from last month
                         </small>
                         @endif
                     </div>
-                    <i class="bi bi-collection-play fs-1 text-primary"></i>
+                    <i class="bi {{ $card['icon'] }} fs-1 {{ $card['icon_color'] }}"></i>
                 </div>
             </div>
         </div>
-        
-        <div class="col-md-3">
-            <div class="stat-card stat-card-2">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-uppercase text-muted mb-1">Total Enrollments</h6>
-                        <h3 class="mb-0">{{ number_format($stats['total_enrollments']['current']) }}</h3>
-                        @if($stats['total_enrollments']['has_change'])
-                        <small class="text-{{ $stats['total_enrollments']['is_positive'] ? 'success' : 'danger' }}">
-                            <i class="bi {{ $stats['total_enrollments']['is_positive'] ? 'bi-arrow-up' : 'bi-arrow-down' }}"></i>
-                            {{ abs($stats['total_enrollments']['percentage']) }}% from last month
-                        </small>
-                        @endif
-                    </div>
-                    <i class="bi bi-people fs-1 text-success"></i>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-3">
-            <div class="stat-card stat-card-3">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-uppercase text-muted mb-1">New This Month</h6>
-                        <h3 class="mb-0">{{ number_format($stats['new_courses']['current']) }}</h3>
-                        @if($stats['new_courses']['has_change'])
-                        <small class="text-{{ $stats['new_courses']['is_positive'] ? 'success' : 'danger' }}">
-                            <i class="bi {{ $stats['new_courses']['is_positive'] ? 'bi-arrow-up' : 'bi-arrow-down' }}"></i>
-                            {{ abs($stats['new_courses']['percentage']) }}% from last month
-                        </small>
-                        @endif
-                    </div>
-                    <i class="bi bi-plus-circle fs-1 text-warning"></i>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-3">
-            <div class="stat-card stat-card-5">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-uppercase text-muted mb-1">No Enrollments</h6>
-                        <h3 class="mb-0">{{ number_format($stats['courses_without_enrollments']['current']) }}</h3>
-                        @if($stats['courses_without_enrollments']['has_change'])
-                        <small class="text-{{ !$stats['courses_without_enrollments']['is_positive'] ? 'success' : 'danger' }}">
-                            <i class="bi {{ !$stats['courses_without_enrollments']['is_positive'] ? 'bi-arrow-down' : 'bi-arrow-up' }}"></i>
-                            {{ abs($stats['courses_without_enrollments']['percentage']) }}% from last month
-                        </small>
-                        @endif
-                    </div>
-                    <i class="bi bi-person-x fs-1 text-danger"></i>
-                </div>
-            </div>
-        </div>
+        @endforeach
     </div>
 
     <!-- PDC Courses Table -->
-    <div class="row">
+    <div class="row mb-5">
         <div class="col-12">
             <div class="table-card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h2 class="card-title mb-0">All PDC Courses</h2>
+                <div class="card-header d-flex justify-content-between align-items-center p-4">
+                    <h2 class="card-title mb-0 h4">All PDC Courses</h2>
                     <div class="d-flex align-items-center gap-3">
                         <form action="{{ route('pdc-courses.index') }}" method="GET" class="d-flex align-items-center">
                             <input type="text" name="search" class="form-control form-control-sm" 
@@ -180,29 +199,29 @@
                         </span>
                     </div>
                 </div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                <div class="table-responsive p-3">
+                    <table class="table table-hover align-middle mb-0">
                         <thead>
                             <tr>
-                                <th>#</th>
-                                <th>
+                                <th scope="col" class="ps-4">#</th>
+                                <th scope="col">
                                     Course Name
                                     <a href="{{ route('pdc-courses.index', array_merge(request()->query(), ['sort_by' => 'course_name', 'sort_dir' => request('sort_dir') === 'asc' ? 'desc' : 'asc'])) }}" 
                                        class="sort-link">
                                         <i class="bi {{ request('sort_by') === 'course_name' && request('sort_dir') === 'asc' ? 'bi-sort-up' : 'bi-sort-down' }}"></i>
                                     </a>
                                 </th>
-                                <th>Short Name</th>
-                                <th class="text-center">Students</th>
-                                <th class="text-center">Instructors</th>
-                                <th class="text-center">Total</th>
-                                <th>Status</th>
+                                <th scope="col">Short Name</th>
+                                <th scope="col" class="text-center">Students</th>
+                                <th scope="col" class="text-center">Instructors</th>
+                                <th scope="col" class="text-center">Total</th>
+                                <th scope="col">Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($pdcCourses as $index => $course)
                             <tr>
-                                <td>{{ $pdcCourses->firstItem() + $index }}</td>
+                                <td class="ps-4">{{ $pdcCourses->firstItem() + $index }}</td>
                                 <td>{{ $course->course_name }}</td>
                                 <td>{{ $course->shortname }}</td>
                                 <td class="text-center">
@@ -220,11 +239,11 @@
                                 </td>
                                 <td>
                                     @if($course->visible)
-                                        <span class="badge bg-success-light">
+                                        <span class="badge bg-success bg-opacity-10 text-success">
                                             <i class="bi bi-check-circle-fill me-1"></i> Active
                                         </span>
                                     @else
-                                        <span class="badge bg-danger-light">
+                                        <span class="badge bg-danger bg-opacity-10 text-danger">
                                             <i class="bi bi-eye-slash-fill me-1"></i> Hidden
                                         </span>
                                     @endif
@@ -243,14 +262,14 @@
                 </div>
                 
                 @if($pdcCourses->hasPages())
-                <div class="card-footer d-flex flex-column flex-md-row justify-content-between align-items-center py-3">
+                <div class="card-footer d-flex flex-column flex-md-row justify-content-between align-items-center p-4">
                     <div class="pagination-info mb-3 mb-md-0">
                         <i class="bi bi-info-circle me-1"></i>
                         Showing <span class="fw-semibold">{{ $pdcCourses->firstItem() }}</span> to 
                         <span class="fw-semibold">{{ $pdcCourses->lastItem() }}</span> of 
                         <span class="fw-semibold">{{ $pdcCourses->total() }}</span> PDC courses
                     </div>
-                    <div class="mt-2 mt-md-0">
+                    <div class="pagination-container">
                         {{ $pdcCourses->withQueryString()->onEachSide(1)->links() }}
                     </div>
                 </div>
@@ -258,21 +277,37 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- Enrollments by Category Chart -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="table-card">
+                <div class="card-header p-4">
+                    <h5 class="card-title mb-0">Enrollments by Category</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="chart-container">
+                        <canvas id="enrollmentsByCategoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Additional Sections -->
-    <div class="row mt-4">
+    <div class="row g-4 mb-5">
         <!-- Top Enrolled PDC Courses -->
         <div class="col-md-6">
             <div class="table-card h-100">
-                <div class="card-header">
-                    <h2 class="card-title">Top Enrolled PDC Courses</h2>
+                <div class="card-header p-4">
+                    <h2 class="card-title h4">Top Enrolled PDC Courses</h2>
                 </div>
-                <div class="table-responsive">
-                    <table class="table">
+                <div class="table-responsive p-3">
+                    <table class="table mb-0">
                         <thead>
                             <tr>
-                                <th>Course Name</th>
-                                <th class="text-end">Enrollments</th>
+                                <th scope="col">Course Name</th>
+                                <th scope="col" class="text-end">Enrollments</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -298,14 +333,14 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- PDC Courses by Category -->
         <div class="col-md-6">
             <div class="table-card h-100">
-                <div class="card-header">
-                    <h2 class="card-title">PDC Courses by Category</h2>
+                <div class="card-header p-4">
+                    <h2 class="card-title h4">PDC Courses by Category</h2>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-4">
                     <div class="chart-container">
                         <canvas id="pdcCoursesByCategoryChart"></canvas>
                     </div>
@@ -313,21 +348,21 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Recently Modified PDC Courses -->
-    <div class="row mt-4">
+    <div class="row">
         <div class="col-12">
             <div class="table-card">
-                <div class="card-header">
-                    <h2 class="card-title">Recently Modified PDC Courses</h2>
+                <div class="card-header p-4">
+                    <h2 class="card-title h4">Recently Modified PDC Courses</h2>
                 </div>
-                <div class="table-responsive">
-                    <table class="table">
+                <div class="table-responsive p-3">
+                    <table class="table mb-0">
                         <thead>
                             <tr>
-                                <th>Course Name</th>
-                                <th>Short Name</th>
-                                <th>Last Modified</th>
+                                <th scope="col">Course Name</th>
+                                <th scope="col">Short Name</th>
+                                <th scope="col">Last Modified</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -358,12 +393,102 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Enrollments by Category Chart
+    const categoryCtx = document.getElementById('enrollmentsByCategoryChart').getContext('2d');
+    const categoryData = @json($enrollmentsByCategory);
+    
+    const categoryLabels = categoryData.map(item => item.category_name);
+    const categoryValues = categoryData.map(item => item.enrollments_count);
+    
+    new Chart(categoryCtx, {
+        type: 'bar',
+        data: {
+            labels: categoryLabels,
+            datasets: [{
+                label: 'Enrollments',
+                data: categoryValues,
+                backgroundColor: [
+                    'rgba(59, 130, 246, 0.7)',
+                    'rgba(16, 185, 129, 0.7)',
+                    'rgba(245, 158, 11, 0.7)',
+                    'rgba(139, 92, 246, 0.7)',
+                    'rgba(20, 184, 166, 0.7)',
+                    'rgba(236, 72, 153, 0.7)',
+                    'rgba(234, 88, 12, 0.7)',
+                    'rgba(220, 38, 38, 0.7)'
+                ],
+                borderColor: [
+                    'rgba(59, 130, 246, 1)',
+                    'rgba(16, 185, 129, 1)',
+                    'rgba(245, 158, 11, 1)',
+                    'rgba(139, 92, 246, 1)',
+                    'rgba(20, 184, 166, 1)',
+                    'rgba(236, 72, 153, 1)',
+                    'rgba(234, 88, 12, 1)',
+                    'rgba(220, 38, 38, 1)'
+                ],
+                borderWidth: 1,
+                borderRadius: 4,
+                barPercentage: 0.8
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.parsed.x} enrollments`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    grid: { 
+                        display: true,
+                        drawBorder: false
+                    },
+                    ticks: { 
+                        precision: 0,
+                        padding: 10
+                    }
+                },
+                y: {
+                    grid: { 
+                        display: false,
+                        drawBorder: false
+                    },
+                    ticks: {
+                        padding: 10
+                    }
+                }
+            },
+            animation: {
+                duration: 1000,
+                easing: 'easeOutQuart'
+            },
+            layout: {
+                padding: {
+                    left: 20,
+                    right: 20,
+                    top: 20,
+                    bottom: 20
+                }
+            }
+        }
+    });
+
     // PDC Courses by Category Chart
-    const ctx = document.getElementById('pdcCoursesByCategoryChart').getContext('2d');
+    const coursesCtx = document.getElementById('pdcCoursesByCategoryChart').getContext('2d');
     const categories = @json($coursesPerCategory->pluck('category_name'));
     const courseCounts = @json($coursesPerCategory->pluck('course_count'));
     
-    new Chart(ctx, {
+    new Chart(coursesCtx, {
         type: 'doughnut',
         data: {
             labels: categories,
@@ -388,6 +513,10 @@ document.addEventListener('DOMContentLoaded', function() {
             plugins: {
                 legend: {
                     position: 'right',
+                    labels: {
+                        padding: 20,
+                        font: { size: 14 }
+                    }
                 },
                 tooltip: {
                     callbacks: {

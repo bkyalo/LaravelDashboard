@@ -4,50 +4,34 @@
 
 @push('styles')
     <style>
-        .stat-card {
-            border: 1px solid #e9ecef;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-            background: white !important;
+        .table-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.04); margin-bottom: 2rem; }
+        .stat-card { border-radius: 0; padding: 1.5rem; margin-bottom: 1.5rem; border-left: 4px solid; }
+        .stat-card-1 { border-color: #3b82f6; }
+        .stat-card-2 { border-color: #10b981; }
+        .stat-card-3 { border-color: #f59e0b; }
+        .stat-card-4 { border-color: #8b5cf6; }
+        .stat-card-5 { border-color: #ef4444; }
+        
+        .stat-card h3 {
+            border-radius: 0 !important;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #1f2937;
         }
         
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #3498db, #2c3e50);
-            transform: scaleX(0);
-            transform-origin: left;
-            transition: transform 0.3s ease;
+        .stat-card .text-muted {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280 !important;
         }
         
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
-        }
-        
-        .stat-card:hover::before {
-            transform: scaleX(1);
-        }
-        
-        /* Stat Cards */
-        .stat-card {
-            background: #fff;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-            transition: all 0.3s ease;
-            height: 100%;
-            position: relative;
-            overflow: hidden;
-            border: 1px solid rgba(0,0,0,0.03);
+        .stat-card .bi {
+            font-size: 2rem;
+            opacity: 0.8;
         }
 
-        .stat-card-1 { border-top: 4px solid #4361ee; }
+        .stat-card-1 { border-color: #3b82f6; }
         .stat-card-2 { border-top: 4px solid #3a0ca3; }
         .stat-card-3 { border-top: 4px solid #7209b7; }
         .stat-card-4 { border-top: 4px solid #f72585; }
@@ -208,85 +192,76 @@
         <!-- Total Users Card -->
         <div class="col-md-2 col-sm-6">
             <div class="stat-card stat-card-1">
-                <div class="stat-icon"><i class="bi bi-people-fill"></i></div>
-                <div class="stat-number">{{ number_format($stats['total_users']['current'] ?? 0) }}</div>
-                <div class="stat-delta {{ $stats['total_users']['is_positive'] ? 'text-success' : 'text-danger' }}">
-                    @if($stats['total_users']['has_change'])
-                        <i class="bi {{ $stats['total_users']['is_positive'] ? 'bi-arrow-up-right' : 'bi-arrow-down-right' }}"></i>
-                        {{ abs($stats['total_users']['delta']) }} ({{ abs($stats['total_users']['percentage']) }}%)
-                    @else
-                        <i class="bi bi-dash"></i> No change
-                    @endif
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-uppercase text-muted mb-1">Total Users</h6>
+                        <h3 class="mb-0">{{ number_format($stats['total_users']['current'] ?? 0) }}</h3>
+                        @if(isset($stats['total_users']['has_change']) && $stats['total_users']['has_change'])
+                        <small class="text-{{ $stats['total_users']['is_positive'] ? 'success' : 'danger' }}">
+                            <i class="bi {{ $stats['total_users']['is_positive'] ? 'bi-arrow-up' : 'bi-arrow-down' }}"></i>
+                            {{ abs($stats['total_users']['percentage'] ?? 0) }}% from last month
+                        </small>
+                        @endif
+                    </div>
+                    <i class="bi bi-people-fill text-primary"></i>
                 </div>
-                <div class="stat-label">Total Users</div>
             </div>
         </div>
 
         <!-- Active Users Card -->
         <div class="col-md-2 col-sm-6">
             <div class="stat-card stat-card-2">
-                <div class="stat-icon"><i class="bi bi-person-check-fill"></i></div>
-                <div class="stat-number">{{ number_format($stats['active_users']['current'] ?? 0) }}</div>
-                <div class="stat-delta {{ $stats['active_users']['is_positive'] ? 'text-success' : 'text-danger' }}">
-                    @if($stats['active_users']['has_change'])
-                        <i class="bi {{ $stats['active_users']['is_positive'] ? 'bi-arrow-up-right' : 'bi-arrow-down-right' }}"></i>
-                        {{ abs($stats['active_users']['delta']) }} ({{ abs($stats['active_users']['percentage']) }}%)
-                    @else
-                        <i class="bi bi-dash"></i> No change
-                    @endif
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-uppercase text-muted mb-1">Active Users</h6>
+                        <h3 class="mb-0">{{ number_format($stats['active_users']['current'] ?? 0) }}</h3>
+                        @if(isset($stats['active_users']['has_change']) && $stats['active_users']['has_change'])
+                        <small class="text-{{ $stats['active_users']['is_positive'] ? 'success' : 'danger' }}">
+                            <i class="bi {{ $stats['active_users']['is_positive'] ? 'bi-arrow-up' : 'bi-arrow-down' }}"></i>
+                            {{ abs($stats['active_users']['percentage'] ?? 0) }}% from last month
+                        </small>
+                        @endif
+                    </div>
+                    <i class="bi bi-person-check-fill text-success"></i>
                 </div>
-                <div class="stat-label">Active (30d)</div>
             </div>
         </div>
 
         <!-- New Users Card -->
         <div class="col-md-2 col-sm-6">
             <div class="stat-card stat-card-3">
-                <div class="stat-icon"><i class="bi bi-person-plus-fill"></i></div>
-                <div class="stat-number">{{ number_format($stats['new_users']['current'] ?? 0) }}</div>
-                <div class="stat-delta {{ $stats['new_users']['is_positive'] ? 'text-success' : 'text-danger' }}">
-                    @if($stats['new_users']['has_change'])
-                        <i class="bi {{ $stats['new_users']['is_positive'] ? 'bi-arrow-up-right' : 'bi-arrow-down-right' }}"></i>
-                        {{ abs($stats['new_users']['delta']) }} ({{ abs($stats['new_users']['percentage']) }}%)
-                    @else
-                        <i class="bi bi-dash"></i> No change
-                    @endif
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-uppercase text-muted mb-1">New This Month</h6>
+                        <h3 class="mb-0">{{ number_format($stats['new_users']['current'] ?? 0) }}</h3>
+                        @if(isset($stats['new_users']['has_change']) && $stats['new_users']['has_change'])
+                        <small class="text-{{ $stats['new_users']['is_positive'] ? 'success' : 'danger' }}">
+                            <i class="bi {{ $stats['new_users']['is_positive'] ? 'bi-arrow-up' : 'bi-arrow-down' }}"></i>
+                            {{ abs($stats['new_users']['percentage'] ?? 0) }}% from last month
+                        </small>
+                        @endif
+                    </div>
+                    <i class="bi bi-person-plus-fill text-warning"></i>
                 </div>
-                <div class="stat-label">New (30d)</div>
-            </div>
-        </div>
-
-        <!-- Never Logged In Card -->
-        <div class="col-md-2 col-sm-6">
-            <div class="stat-card stat-card-4">
-                <div class="stat-icon"><i class="bi bi-person-dash-fill"></i></div>
-                <div class="stat-number">{{ number_format($stats['never_logged_in']['current'] ?? 0) }}</div>
-                <div class="stat-delta {{ !$stats['never_logged_in']['is_positive'] ? 'text-success' : 'text-danger' }}">
-                    @if($stats['never_logged_in']['has_change'])
-                        <i class="bi {{ !$stats['never_logged_in']['is_positive'] ? 'bi-arrow-down-right' : 'bi-arrow-up-right' }}"></i>
-                        {{ abs($stats['never_logged_in']['delta']) }} ({{ abs($stats['never_logged_in']['percentage']) }}%)
-                    @else
-                        <i class="bi bi-dash"></i> No change
-                    @endif
-                </div>
-                <div class="stat-label">Never Logged In</div>
             </div>
         </div>
 
         <!-- Users with 0 Enrollments Card -->
-        <div class="col-md-2 col-sm-6">
+        <div class="col-md-3 col-sm-6">
             <div class="stat-card stat-card-5">
-                <div class="stat-icon"><i class="bi bi-person-x-fill"></i></div>
-                <div class="stat-number">{{ number_format($stats['users_with_no_enrollments']['current'] ?? 0) }}</div>
-                <div class="stat-delta {{ !$stats['users_with_no_enrollments']['is_positive'] ? 'text-success' : 'text-danger' }}">
-                    @if($stats['users_with_no_enrollments']['has_change'])
-                        <i class="bi {{ !$stats['users_with_no_enrollments']['is_positive'] ? 'bi-arrow-down-right' : 'bi-arrow-up-right' }}"></i>
-                        {{ abs($stats['users_with_no_enrollments']['delta']) }} ({{ abs($stats['users_with_no_enrollments']['percentage']) }}%)
-                    @else
-                        <i class="bi bi-dash"></i> No change
-                    @endif
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-uppercase text-muted mb-1">No Enrollments</h6>
+                        <h3 class="mb-0">{{ number_format($stats['users_with_no_enrollments']['current'] ?? 0) }}</h3>
+                        @if(isset($stats['users_with_no_enrollments']['has_change']) && $stats['users_with_no_enrollments']['has_change'])
+                        <small class="text-{{ !$stats['users_with_no_enrollments']['is_positive'] ? 'success' : 'danger' }}">
+                            <i class="bi {{ !$stats['users_with_no_enrollments']['is_positive'] ? 'bi-arrow-down' : 'bi-arrow-up' }}"></i>
+                            {{ abs($stats['users_with_no_enrollments']['percentage'] ?? 0) }}% from last month
+                        </small>
+                        @endif
+                    </div>
+                    <i class="bi bi-person-x-fill text-danger"></i>
                 </div>
-                <div class="stat-label">No Enrollments</div>
             </div>
         </div>
     </div>
