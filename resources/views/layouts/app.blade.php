@@ -4,6 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'Moodle Dashboard')</title>
+    
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('dashboard-16.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('dashboard-32.png') }}">
+    <link rel="icon" type="image/png" sizes="96x96" href="{{ asset('dashboard-96.png') }}">
+    <link rel="shortcut icon" href="{{ asset('dashboard-32.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('dashboard-96.png') }}">
 
     <!-- Google Fonts - Quicksand -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -180,7 +187,7 @@
                 <i class="bi bi-graph-up-arrow me-2"></i>
                 <span>Time vs. Grades</span>
             </a>
-            <a href="#" class="nav-link">
+            <a href="{{ route('pdc-courses.index') }}" class="nav-link {{ request()->routeIs('pdc-courses.*') ? 'active' : '' }}">
                 <i class="bi bi-journal-bookmark"></i>
                 <span>PDC Courses</span>
             </a>
