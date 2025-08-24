@@ -79,12 +79,14 @@ class CoursesController extends Controller
                 'c.id',
                 'c.fullname as course_name',
                 'c.visible',
+                'c.shortname',
                 DB::raw('COUNT(ue.id) as enrollment_count')
             )
             ->leftJoin('mdl_enrol as e', 'c.id', '=', 'e.courseid')
             ->leftJoin('mdl_user_enrolments as ue', 'e.id', '=', 'ue.enrolid')
             ->where('c.visible', 1)
-            ->groupBy('c.id', 'c.fullname', 'c.visible');
+            ->where('c.shortname', 'NOT LIKE', '%PDC%') // Exclude PDC courses
+            ->groupBy('c.id', 'c.fullname', 'c.visible', 'c.shortname');
 
         if ($order === 'desc') {
             $query->orderByDesc('enrollment_count');
@@ -137,31 +139,38 @@ class CoursesController extends Controller
      */
     protected function getEnrollmentsByCategory()
     {
-        return DB::table('mdl_course as c')
+        // Get enrollment counts per category (counting all enrollments, not unique users)
+        $categories = DB::table('mdl_course as c')
             ->select(
                 'cc.id',
                 'cc.name as category_name',
-                DB::raw('COUNT(DISTINCT ue.userid) as enrollments_count')
+                'cc.depth',
+                'cc.path',
+                DB::raw('COUNT(ue.id) as enrollments_count')
             )
             ->join('mdl_enrol as e', 'c.id', '=', 'e.courseid')
             ->join('mdl_user_enrolments as ue', 'e.id', '=', 'ue.enrolid')
             ->join('mdl_course_categories as cc', 'c.category', '=', 'cc.id')
-            ->where('c.id', '!=', 1) // Skip the front page
-            ->where('c.shortname', 'NOT LIKE', '%PDC%') // Exclude PDC courses
-            ->groupBy('cc.id', 'cc.name')
+            ->where('c.id', '!=', 1)
+            ->where('c.shortname', 'NOT LIKE', '%PDC%')
+            ->where('c.visible', 1)
+            ->groupBy('cc.id', 'cc.name', 'cc.depth', 'cc.path')
             ->having('enrollments_count', '>', 0)
             ->orderBy('enrollments_count', 'desc')
-            ->get()
-            ->map(function($category) {
-                // Get the category depth for indentation
-                $depth = DB::table('mdl_course_categories')
-                    ->where('id', $category->id)
-                    ->value('depth');
-                
-                $indent = str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;', $depth - 1);
-                $category->display_name = $indent . $category->category_name;
-                return $category;
-            });
+            ->get();
+        
+        // Process the categories to add display names with proper indentation
+        return $categories->map(function($category) {
+            // Calculate the depth based on the path (number of slashes - 1)
+            $depth = substr_count($category->path, '/') - 1;
+            $category->depth = max(1, $depth); // Ensure depth is at least 1
+            
+            // Create display name with indentation
+            $indent = str_repeat('    ', $category->depth - 1);
+            $category->display_name = $indent . $category->category_name;
+            
+            return $category;
+        });
     }
 
     /**
@@ -177,16 +186,16 @@ class CoursesController extends Controller
         $currentStats = [
             'total_courses' => $this->getTotalCourses($currentMonthEnd),
             'active_courses' => $this->getActiveCourses($currentMonthEnd),
-            'new_courses' => $this->getNewCourses($currentMonthStart, $currentMonthEnd),
-            'pdc_courses' => $this->getPdcCourses($currentMonthEnd),
+            'total_enrollments' => $this->getTotalEnrollments($currentMonthEnd),
+            'active_users' => $this->getActiveUsers($currentMonthEnd),
             'courses_without_enrollments' => $this->getCoursesWithoutEnrollments($currentMonthEnd)
         ];
 
         $lastMonthStats = [
             'total_courses' => $this->getTotalCourses($lastMonthEnd),
             'active_courses' => $this->getActiveCourses($lastMonthEnd),
-            'new_courses' => $this->getNewCourses($lastMonthStart, $lastMonthEnd),
-            'pdc_courses' => $this->getPdcCourses($lastMonthEnd),
+            'total_enrollments' => $this->getTotalEnrollments($lastMonthEnd),
+            'active_users' => $this->getActiveUsers($lastMonthEnd),
             'courses_without_enrollments' => $this->getCoursesWithoutEnrollments($lastMonthEnd)
         ];
 
@@ -282,8 +291,34 @@ class CoursesController extends Controller
     {
         return DB::table('mdl_course')
             ->where('id', '!=', 1) // Skip the front page
-            ->where('timecreated', '<=', $endDate->timestamp)
+            ->where('shortname', 'NOT LIKE', '%PDC%') // Exclude PDC courses
+            ->where('visible', 1) // Only count visible courses
             ->count();
+    }
+
+    private function getTotalEnrollments($endDate)
+    {
+        return DB::table('mdl_user_enrolments as ue')
+            ->join('mdl_enrol as e', 'ue.enrolid', '=', 'e.id')
+            ->join('mdl_course as c', 'e.courseid', '=', 'c.id')
+            ->where('c.id', '!=', 1) // Skip the front page
+            ->where('c.shortname', 'NOT LIKE', '%PDC%') // Exclude PDC courses
+            ->where('c.visible', 1) // Only count enrollments in visible courses
+            ->count();
+    }
+    
+    private function getActiveUsers($endDate)
+    {
+        $thirtyDaysAgo = now()->subDays(30)->timestamp;
+        
+        return DB::table('mdl_user_lastaccess as la')
+            ->join('mdl_course as c', 'la.courseid', '=', 'c.id')
+            ->where('c.id', '!=', 1) // Skip the front page
+            ->where('c.shortname', 'NOT LIKE', '%PDC%') // Exclude PDC courses
+            ->where('c.visible', 1) // Only count active users in visible courses
+            ->where('la.timeaccess', '>=', $thirtyDaysAgo)
+            ->distinct('la.userid')
+            ->count('la.userid');
     }
 
     private function getActiveCourses($endDate)
@@ -304,16 +339,9 @@ class CoursesController extends Controller
     {
         return DB::table('mdl_course')
             ->where('id', '!=', 1) // Skip the front page
+            ->where('shortname', 'NOT LIKE', '%PDC%') // Exclude PDC courses
+            ->where('visible', 1) // Only count visible courses
             ->whereBetween('timecreated', [$startDate->timestamp, $endDate->timestamp])
-            ->count();
-    }
-
-    private function getPdcCourses($endDate)
-    {
-        return DB::table('mdl_course')
-            ->where('id', '!=', 1) // Skip the front page
-            ->where('shortname', 'LIKE', '%PDC%')
-            ->where('timecreated', '<=', $endDate->timestamp)
             ->count();
     }
 

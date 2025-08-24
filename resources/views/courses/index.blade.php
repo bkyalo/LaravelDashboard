@@ -583,14 +583,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const ctx = document.getElementById('enrollmentsByCategoryChart').getContext('2d');
     
     // Prepare data from PHP
-    const categories = @json($enrollmentCategoryNames);
-    const enrollmentCounts = @json($enrollmentCounts);
+    const enrollmentsData = @json($enrollmentsByCategory);
     
-    // Generate colors
+    // Sort by enrollment count in descending order
+    enrollmentsData.sort((a, b) => b.enrollments_count - a.enrollments_count);
+    
+    // Prepare data for the chart
+    const categories = [];
+    const enrollmentCounts = [];
     const backgroundColors = [];
     const borderColors = [];
     
-    // Use a color palette that works well for charts
+    // Color palette
     const colorPalette = [
         'rgba(54, 162, 235, 0.7)',  // Blue
         'rgba(255, 99, 132, 0.7)',  // Red
@@ -601,12 +605,18 @@ document.addEventListener('DOMContentLoaded', function() {
         'rgba(201, 203, 207, 0.7)'  // Gray
     ];
     
-    // Assign colors to categories
-    for (let i = 0; i < categories.length; i++) {
-        const colorIndex = i % colorPalette.length;
+    // Process data
+    enrollmentsData.forEach((item, index) => {
+        // Add indentation based on depth
+        const indent = '    '.repeat(item.depth - 1);
+        categories.push(`${indent}${item.category_name}`);
+        enrollmentCounts.push(item.enrollments_count);
+        
+        // Assign colors
+        const colorIndex = index % colorPalette.length;
         backgroundColors.push(colorPalette[colorIndex]);
         borderColors.push(colorPalette[colorIndex].replace('0.7', '1'));
-    }
+    });
     
     // Create the bar chart
     new Chart(ctx, {
@@ -642,15 +652,22 @@ document.addEventListener('DOMContentLoaded', function() {
                         display: false
                     },
                     ticks: {
-                        precision: 0
+                        precision: 0,
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
                     }
                 },
                 y: {
-                    title: {
-                        display: false
-                    },
-                    grid: {
-                        display: false
+                    ticks: {
+                        font: {
+                            family: 'monospace', // Better for indentation
+                            size: 12
+                        },
+                        callback: function(value) {
+                            // Return the label as is (with indentation)
+                            return this.getLabelForValue(value);
+                        }
                     }
                 }
             },
@@ -661,7 +678,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            return `${context.parsed.x.toLocaleString()} enrollments`;
+                            // Remove indentation for tooltips
+                            const label = context.label.replace(/\s{4}/g, '');
+                            return `${label}: ${context.raw.toLocaleString()} enrollments`;
                         }
                     },
                     backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -673,12 +692,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         size: 13
                     },
                     padding: 12,
-                    usePointStyle: true
+                    displayColors: false
                 }
             },
             animation: {
                 duration: 1000,
-                easing: 'easeOutQuart'
+                easing: 'easeInOutQuart'
             }
         }
     });
@@ -847,37 +866,37 @@ $(document).ready(function() {
             </div>
         </div>
 
-        <!-- New Courses Card -->
+        <!-- Total Enrollments Card -->
         <div class="col-md-2 col-sm-6">
             <div class="stat-card stat-card-3">
-                <div class="stat-icon"><i class="bi bi-plus-circle"></i></div>
-                <div class="stat-number">{{ number_format($stats['new_courses']['current'] ?? 0) }}</div>
-                <div class="stat-delta {{ $stats['new_courses']['is_positive'] ? 'text-success' : 'text-danger' }}">
-                    @if($stats['new_courses']['has_change'])
-                        <i class="bi {{ $stats['new_courses']['is_positive'] ? 'bi-arrow-up-right' : 'bi-arrow-down-right' }}"></i>
-                        {{ abs($stats['new_courses']['delta']) }} ({{ abs($stats['new_courses']['percentage']) }}%)
+                <div class="stat-icon"><i class="bi bi-people"></i></div>
+                <div class="stat-number">{{ number_format($stats['total_enrollments']['current'] ?? 0) }}</div>
+                <div class="stat-delta {{ $stats['total_enrollments']['is_positive'] ? 'text-success' : 'text-danger' }}">
+                    @if($stats['total_enrollments']['has_change'])
+                        <i class="bi {{ $stats['total_enrollments']['is_positive'] ? 'bi-arrow-up-right' : 'bi-arrow-down-right' }}"></i>
+                        {{ abs($stats['total_enrollments']['delta']) }} ({{ abs($stats['total_enrollments']['percentage']) }}%)
                     @else
                         <i class="bi bi-dash"></i> No change
                     @endif
                 </div>
-                <div class="stat-label">New This Month</div>
+                <div class="stat-label">Total Enrollments</div>
             </div>
         </div>
 
-        <!-- PDC Courses Card -->
+        <!-- Active Users Card -->
         <div class="col-md-2 col-sm-6">
             <div class="stat-card stat-card-4">
-                <div class="stat-icon"><i class="bi bi-briefcase"></i></div>
-                <div class="stat-number">{{ number_format($stats['pdc_courses']['current'] ?? 0) }}</div>
-                <div class="stat-delta {{ $stats['pdc_courses']['is_positive'] ? 'text-success' : 'text-danger' }}">
-                    @if($stats['pdc_courses']['has_change'])
-                        <i class="bi {{ $stats['pdc_courses']['is_positive'] ? 'bi-arrow-up-right' : 'bi-arrow-down-right' }}"></i>
-                        {{ abs($stats['pdc_courses']['delta']) }} ({{ abs($stats['pdc_courses']['percentage']) }}%)
+                <div class="stat-icon"><i class="bi bi-person-check"></i></div>
+                <div class="stat-number">{{ number_format($stats['active_users']['current'] ?? 0) }}</div>
+                <div class="stat-delta {{ $stats['active_users']['is_positive'] ? 'text-success' : 'text-danger' }}">
+                    @if($stats['active_users']['has_change'])
+                        <i class="bi {{ $stats['active_users']['is_positive'] ? 'bi-arrow-up-right' : 'bi-arrow-down-right' }}"></i>
+                        {{ abs($stats['active_users']['delta']) }} ({{ abs($stats['active_users']['percentage']) }}%)
                     @else
                         <i class="bi bi-dash"></i> No change
                     @endif
                 </div>
-                <div class="stat-label">PDC Courses</div>
+                <div class="stat-label">Active Users (30d)</div>
             </div>
         </div>
 
@@ -895,6 +914,37 @@ $(document).ready(function() {
                     @endif
                 </div>
                 <div class="stat-label">No Enrollments</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row">
+        <!-- Courses Per Category Chart -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Courses by Category</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="coursesByCategoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enrollments by Category Chart -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Enrollments by Category (Excluding PDC)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="enrollmentsByCategoryChart"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1136,37 +1186,6 @@ $(document).ready(function() {
                     </div>
                 @endif
 
-            </div>
-        </div>
-    </div>
-
-    <!-- Charts Row -->
-    <div class="row">
-        <!-- Courses Per Category Chart -->
-        <div class="col-md-6">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Courses by Category</h5>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container">
-                        <canvas id="coursesByCategoryChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Enrollments by Category Chart -->
-        <div class="col-md-6">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Enrollments by Category (Excluding PDC)</h5>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container">
-                        <canvas id="enrollmentsByCategoryChart"></canvas>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
