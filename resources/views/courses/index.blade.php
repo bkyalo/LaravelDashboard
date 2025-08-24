@@ -578,6 +578,112 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Enrollments by Category Bar Chart
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('enrollmentsByCategoryChart').getContext('2d');
+    
+    // Prepare data from PHP
+    const categories = @json($enrollmentCategoryNames);
+    const enrollmentCounts = @json($enrollmentCounts);
+    
+    // Generate colors
+    const backgroundColors = [];
+    const borderColors = [];
+    
+    // Use a color palette that works well for charts
+    const colorPalette = [
+        'rgba(54, 162, 235, 0.7)',  // Blue
+        'rgba(255, 99, 132, 0.7)',  // Red
+        'rgba(75, 192, 192, 0.7)',  // Teal
+        'rgba(255, 159, 64, 0.7)',  // Orange
+        'rgba(153, 102, 255, 0.7)', // Purple
+        'rgba(255, 205, 86, 0.7)',  // Yellow
+        'rgba(201, 203, 207, 0.7)'  // Gray
+    ];
+    
+    // Assign colors to categories
+    for (let i = 0; i < categories.length; i++) {
+        const colorIndex = i % colorPalette.length;
+        backgroundColors.push(colorPalette[colorIndex]);
+        borderColors.push(colorPalette[colorIndex].replace('0.7', '1'));
+    }
+    
+    // Create the bar chart
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: categories,
+            datasets: [{
+                label: 'Number of Enrollments',
+                data: enrollmentCounts,
+                backgroundColor: backgroundColors,
+                borderColor: borderColors,
+                borderWidth: 1,
+                borderRadius: 4,
+                barThickness: 'flex',
+                maxBarThickness: 40
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y', // Horizontal bars
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Enrollments',
+                        font: {
+                            weight: 'bold'
+                        }
+                    },
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        precision: 0
+                    }
+                },
+                y: {
+                    title: {
+                        display: false
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.parsed.x.toLocaleString()} enrollments`;
+                        }
+                    },
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleFont: {
+                        size: 14,
+                        weight: 'bold'
+                    },
+                    bodyFont: {
+                        size: 13
+                    },
+                    padding: 12,
+                    usePointStyle: true
+                }
+            },
+            animation: {
+                duration: 1000,
+                easing: 'easeOutQuart'
+            }
+        }
+    });
+});
+
 // Initialize DataTable with server-side processing
 $(document).ready(function() {
     // Check if jQuery is loaded
@@ -1034,17 +1140,31 @@ $(document).ready(function() {
         </div>
     </div>
 
-    <!-- Courses Per Category Chart -->
+    <!-- Charts Row -->
     <div class="row">
-        <div class="col-12">
-            <div class="table-card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h2 class="card-title mb-0">Courses by Category</h2>
-                    <div class="text-muted small">Total Categories: {{ $coursesPerCategory->count() }}</div>
+        <!-- Courses Per Category Chart -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Courses by Category</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container">
                         <canvas id="coursesByCategoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enrollments by Category Chart -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Enrollments by Category (Excluding PDC)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="enrollmentsByCategoryChart"></canvas>
                     </div>
                 </div>
             </div>

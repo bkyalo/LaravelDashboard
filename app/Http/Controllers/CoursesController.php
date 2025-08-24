@@ -131,6 +131,40 @@ class CoursesController extends Controller
     }
 
     /**
+     * Get enrollments count by category for non-PDC courses
+     * 
+     * @return \Illuminate\Support\Collection
+     */
+    protected function getEnrollmentsByCategory()
+    {
+        return DB::table('mdl_course as c')
+            ->select(
+                'cc.id',
+                'cc.name as category_name',
+                DB::raw('COUNT(DISTINCT ue.userid) as enrollments_count')
+            )
+            ->join('mdl_enrol as e', 'c.id', '=', 'e.courseid')
+            ->join('mdl_user_enrolments as ue', 'e.id', '=', 'ue.enrolid')
+            ->join('mdl_course_categories as cc', 'c.category', '=', 'cc.id')
+            ->where('c.id', '!=', 1) // Skip the front page
+            ->where('c.shortname', 'NOT LIKE', '%PDC%') // Exclude PDC courses
+            ->groupBy('cc.id', 'cc.name')
+            ->having('enrollments_count', '>', 0)
+            ->orderBy('enrollments_count', 'desc')
+            ->get()
+            ->map(function($category) {
+                // Get the category depth for indentation
+                $depth = DB::table('mdl_course_categories')
+                    ->where('id', $category->id)
+                    ->value('depth');
+                
+                $indent = str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;', $depth - 1);
+                $category->display_name = $indent . $category->category_name;
+                return $category;
+            });
+    }
+
+    /**
      * Get dashboard statistics
      */
     protected function getDashboardStats()
@@ -193,6 +227,13 @@ class CoursesController extends Controller
             // Get course creation stats and categories
             $creationStats = $this->getCreationStats();
             $coursesPerCategory = $this->getCoursesPerCategory();
+            $enrollmentsByCategory = $this->getEnrollmentsByCategory();
+        
+            // Get category names and course counts for the charts
+            $categoryNames = $coursesPerCategory->pluck('display_name');
+            $courseCounts = $coursesPerCategory->pluck('course_count');
+            $enrollmentCategoryNames = $enrollmentsByCategory->pluck('display_name');
+            $enrollmentCounts = $enrollmentsByCategory->pluck('enrollments_count');
 
             return view('courses.index', [
                 'stats' => $stats,
@@ -201,10 +242,15 @@ class CoursesController extends Controller
                 'recentlyModified' => $recentlyModified,
                 'creationStats' => $creationStats,
                 'coursesPerCategory' => $coursesPerCategory,
+                'enrollmentsByCategory' => $enrollmentsByCategory,
                 'allCourses' => $allCourses,
                 'search' => $request->input('search'),
                 'sortBy' => $request->input('sort_by', 'fullname'),
-                'sortDir' => $request->input('sort_dir', 'asc')
+                'sortDir' => $request->input('sort_dir', 'asc'),
+                'categoryNames' => $categoryNames,
+                'courseCounts' => $courseCounts,
+                'enrollmentCategoryNames' => $enrollmentCategoryNames,
+                'enrollmentCounts' => $enrollmentCounts
             ]);
 
         } catch (\Exception $e) {
