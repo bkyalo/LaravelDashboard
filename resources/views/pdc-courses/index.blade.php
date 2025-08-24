@@ -213,6 +213,61 @@
         @endforeach
     </div>
 
+    <!-- Additional Sections -->
+    <div class="row g-4 mb-5">
+        <!-- Top Enrolled PDC Courses -->
+        <div class="col-md-6">
+            <div class="table-card h-100">
+                <div class="card-header p-4">
+                    <h2 class="card-title h4">Top Enrolled PDC Courses</h2>
+                </div>
+                <div class="table-responsive p-3">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Course Name</th>
+                                <th scope="col" class="text-end">Enrollments</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($topEnrolledCourses as $course)
+                            <tr>
+                                <td>
+                                    <div class="text-truncate" style="max-width: 250px;" title="{{ $course->course_name }}">
+                                        {{ $course->course_name }}
+                                    </div>
+                                    <div class="text-muted small">{{ $course->shortname }}</div>
+                                </td>
+                                <td class="text-end">
+                                    <span class="badge bg-primary">{{ number_format($course->enrollment_count) }}</span>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="2" class="text-center py-3">No enrollment data available</td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PDC Courses by Category -->
+        <div class="col-md-6">
+            <div class="table-card h-100">
+                <div class="card-header p-4">
+                    <h2 class="card-title h4">PDC Courses by Category</h2>
+                </div>
+                <div class="card-body p-4">
+                    <div class="chart-container">
+                        <canvas id="pdcCoursesByCategoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- PDC Courses Table -->
     <div class="row mb-5">
         <div class="col-12">
@@ -396,61 +451,6 @@
                 <div class="card-body p-4">
                     <div class="chart-container">
                         <canvas id="enrollmentsByCategoryChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Additional Sections -->
-    <div class="row g-4 mb-5">
-        <!-- Top Enrolled PDC Courses -->
-        <div class="col-md-6">
-            <div class="table-card h-100">
-                <div class="card-header p-4">
-                    <h2 class="card-title h4">Top Enrolled PDC Courses</h2>
-                </div>
-                <div class="table-responsive p-3">
-                    <table class="table mb-0">
-                        <thead>
-                            <tr>
-                                <th scope="col">Course Name</th>
-                                <th scope="col" class="text-end">Enrollments</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($topEnrolledCourses as $course)
-                            <tr>
-                                <td>
-                                    <div class="text-truncate" style="max-width: 250px;" title="{{ $course->course_name }}">
-                                        {{ $course->course_name }}
-                                    </div>
-                                    <div class="text-muted small">{{ $course->shortname }}</div>
-                                </td>
-                                <td class="text-end">
-                                    <span class="badge bg-primary">{{ number_format($course->enrollment_count) }}</span>
-                                </td>
-                            </tr>
-                            @empty
-                            <tr>
-                                <td colspan="2" class="text-center py-3">No enrollment data available</td>
-                            </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- PDC Courses by Category -->
-        <div class="col-md-6">
-            <div class="table-card h-100">
-                <div class="card-header p-4">
-                    <h2 class="card-title h4">PDC Courses by Category</h2>
-                </div>
-                <div class="card-body p-4">
-                    <div class="chart-container">
-                        <canvas id="pdcCoursesByCategoryChart"></canvas>
                     </div>
                 </div>
             </div>
