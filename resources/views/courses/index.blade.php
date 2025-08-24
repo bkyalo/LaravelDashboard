@@ -212,7 +212,7 @@
     /* Chart Container */
     .chart-container {
         position: relative;
-        height: 600px; /* Increased from 400px */
+        height: 400px; /* Reduced from 600px */
         margin-bottom: 2rem;
     }
 
@@ -518,98 +518,60 @@ document.addEventListener('DOMContentLoaded', function() {
         borderColors.push(colorPalette[colorIndex].replace('0.7', '1'));
     }
     
-    // Create the chart
+    // Create the pie chart
     new Chart(ctx, {
-        type: 'bar',
+        type: 'pie',
         data: {
             labels: categories,
             datasets: [{
-                label: 'Number of Courses',
                 data: courseCounts,
                 backgroundColor: backgroundColors,
-                borderColor: borderColors,
-                borderWidth: 1,
-                borderRadius: 4,
-                barPercentage: 0.9,
-                categoryPercentage: 0.9
+                borderColor: '#fff',
+                borderWidth: 2,
+                hoverOffset: 15,
+                hoverBorderWidth: 3
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            indexAxis: 'y', // Makes the chart horizontal
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    grid: {
-                        display: true,
-                        drawBorder: false
-                    },
-                    ticks: {
-                        precision: 0
-                    }
-                },
-                y: {
-                    grid: {
-                        display: false
-                    },
-                    ticks: {
-                        autoSkip: false,
-                        maxRotation: 0,
-                        minRotation: 0,
-                        padding: 10,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true,
+                        pointStyle: 'circle',
                         font: {
                             size: 12
                         }
                     }
-                }
-            },
-            plugins: {
-                legend: {
-                    position: 'top',
-                    align: 'end',
-                    labels: {
-                        boxWidth: 12,
-                        padding: 20,
-                        usePointStyle: true,
-                        pointStyle: 'circle'
-                    }
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    titleFont: {
-                        size: 14,
-                        weight: 'bold'
-                    },
-                    bodyFont: {
-                        size: 13
-                    },
-                    padding: 12,
-                    usePointStyle: true,
                     callbacks: {
                         label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.parsed.x !== null) {
-                                label += new Intl.NumberFormat().format(context.parsed.x);
-                            }
-                            return label;
+                            const label = context.label || '';
+                            const value = context.raw || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = Math.round((value / total) * 100);
+                            return `${label}: ${value} (${percentage}%)`;
                         }
                     }
                 }
             },
+            cutout: '60%',
             animation: {
                 duration: 1000,
-                easing: 'easeInOutQuart'
+                easing: 'easeInOutQuart',
+                animateScale: true,
+                animateRotate: true
             },
             layout: {
                 padding: {
                     left: 10,
                     right: 10,
                     top: 10,
-                    bottom: 50 // Increased bottom padding for x-axis labels
+                    bottom: 10
                 }
             }
         }

@@ -72,7 +72,7 @@ class CoursesController extends Controller
     /**
      * Get top or least enrolled courses
      */
-    protected function getEnrolledCourses($limit = 10, $order = 'desc')
+    protected function getEnrolledCourses($limit = 5, $order = 'desc')
     {
         $query = $this->getBaseCourseQuery()
             ->select(
@@ -184,8 +184,8 @@ class CoursesController extends Controller
             $allCourses = $this->getPaginatedCourses($request);
             
             // Get top and least enrolled courses
-            $topEnrolledCourses = $this->getEnrolledCourses(10, 'desc');
-            $leastEnrolledCourses = $this->getEnrolledCourses(10, 'asc');
+            $topEnrolledCourses = $this->getEnrolledCourses(5, 'desc');
+            $leastEnrolledCourses = $this->getEnrolledCourses(5, 'asc');
             
             // Get recently modified courses
             $recentlyModified = $this->getRecentlyModified(10);
@@ -301,6 +301,7 @@ class CoursesController extends Controller
             )
             ->where('cc.id', '!=', 1) // Skip the front page category
             ->groupBy('cc.id', 'cc.name')
+            ->having('course_count', '>', 0)
             ->orderBy('cc.path')
             ->get()
             ->map(function($category) {
