@@ -8,164 +8,190 @@ use Carbon\Carbon;
 
 class CoursesController extends Controller
 {
+    /**
+     * Get base course query with common filters
+     */
+    protected function getBaseCourseQuery()
+    {
+        return DB::table('mdl_course as c')
+            ->where('c.id', '!=', 1); // Skip the front page
+    }
+
+    /**
+     * Get paginated courses with search and sort
+     */
+    protected function getPaginatedCourses($request, $perPage = 10)
+    {
+        $search = $request->input('search');
+        $sortBy = $request->input('sort_by', 'fullname');
+        $sortDir = $request->input('sort_dir', 'asc');
+
+        $query = $this->getBaseCourseQuery()
+            ->select(
+                'c.id',
+                'c.fullname as course_name',
+                'c.visible',
+                DB::raw('(SELECT COUNT(DISTINCT ue.userid) 
+                         FROM mdl_enrol e 
+                         JOIN mdl_user_enrolments ue ON e.id = ue.enrolid 
+                         JOIN mdl_role_assignments ra ON ra.userid = ue.userid 
+                         JOIN mdl_role r ON ra.roleid = r.id 
+                         WHERE e.courseid = c.id AND r.shortname = "student") as student_count'),
+                DB::raw('(SELECT COUNT(DISTINCT ue.userid) 
+                         FROM mdl_enrol e 
+                         JOIN mdl_user_enrolments ue ON e.id = ue.enrolid 
+                         JOIN mdl_role_assignments ra ON ra.userid = ue.userid 
+                         JOIN mdl_role r ON ra.roleid = r.id 
+                         WHERE e.courseid = c.id AND r.shortname IN ("editingteacher", "teacher")) as instructor_count')
+            );
+
+        if ($search) {
+            $query->where('c.fullname', 'LIKE', "%{$search}%");
+        }
+
+        $sortableColumns = [
+            'id' => 'c.id',
+            'course_name' => 'c.fullname',
+            'student_count' => 'student_count',
+            'instructor_count' => 'instructor_count',
+            'visible' => 'c.visible'
+        ];
+
+        if (array_key_exists($sortBy, $sortableColumns)) {
+            $query->orderBy($sortableColumns[$sortBy], $sortDir === 'desc' ? 'desc' : 'asc');
+        }
+
+        return $query->paginate($perPage)
+            ->appends([
+                'search' => $search,
+                'sort_by' => $sortBy,
+                'sort_dir' => $sortDir
+            ]);
+    }
+
+    /**
+     * Get top or least enrolled courses
+     */
+    protected function getEnrolledCourses($limit = 10, $order = 'desc')
+    {
+        $query = $this->getBaseCourseQuery()
+            ->select(
+                'c.id',
+                'c.fullname as course_name',
+                'c.visible',
+                DB::raw('COUNT(ue.id) as enrollment_count')
+            )
+            ->leftJoin('mdl_enrol as e', 'c.id', '=', 'e.courseid')
+            ->leftJoin('mdl_user_enrolments as ue', 'e.id', '=', 'ue.enrolid')
+            ->where('c.visible', 1)
+            ->groupBy('c.id', 'c.fullname', 'c.visible');
+
+        if ($order === 'desc') {
+            $query->orderByDesc('enrollment_count');
+        } else {
+            $query->having('enrollment_count', '>', 0)
+                  ->orderBy('enrollment_count');
+        }
+
+        return $query->take($limit)->get();
+    }
+
+    /**
+     * Get recently modified courses
+     */
+    protected function getRecentlyModified($limit = 10)
+    {
+        return $this->getBaseCourseQuery()
+            ->select('id', 'fullname', 'shortname', 'timemodified')
+            ->orderBy('timemodified', 'desc')
+            ->take($limit)
+            ->get()
+            ->map(function ($course) {
+                $course->last_modified = $course->timemodified 
+                    ? Carbon::createFromTimestamp($course->timemodified)->diffForHumans()
+                    : 'Never';
+                return $course;
+            });
+    }
+
+    /**
+     * Get course creation stats by month for the current year
+     */
+    protected function getCreationStats()
+    {
+        return $this->getBaseCourseQuery()
+            ->select(
+                DB::raw('FROM_UNIXTIME(timecreated, "%Y-%m") as month'),
+                DB::raw('COUNT(*) as count')
+            )
+            ->whereRaw('YEAR(FROM_UNIXTIME(timecreated)) = ?', [now()->year])
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+    }
+
+    /**
+     * Get dashboard statistics
+     */
+    protected function getDashboardStats()
+    {
+        $currentMonthStart = now()->startOfMonth();
+        $currentMonthEnd = now()->endOfMonth();
+        $lastMonthStart = now()->subMonth()->startOfMonth();
+        $lastMonthEnd = now()->subMonth()->endOfMonth();
+
+        $currentStats = [
+            'total_courses' => $this->getTotalCourses($currentMonthEnd),
+            'active_courses' => $this->getActiveCourses($currentMonthEnd),
+            'new_courses' => $this->getNewCourses($currentMonthStart, $currentMonthEnd),
+            'pdc_courses' => $this->getPdcCourses($currentMonthEnd),
+            'courses_without_enrollments' => $this->getCoursesWithoutEnrollments($currentMonthEnd)
+        ];
+
+        $lastMonthStats = [
+            'total_courses' => $this->getTotalCourses($lastMonthEnd),
+            'active_courses' => $this->getActiveCourses($lastMonthEnd),
+            'new_courses' => $this->getNewCourses($lastMonthStart, $lastMonthEnd),
+            'pdc_courses' => $this->getPdcCourses($lastMonthEnd),
+            'courses_without_enrollments' => $this->getCoursesWithoutEnrollments($lastMonthEnd)
+        ];
+
+        $stats = [];
+        foreach ($currentStats as $key => $currentValue) {
+            $lastValue = $lastMonthStats[$key] ?? 0;
+            $delta = $currentValue - $lastValue;
+            $percentage = $lastValue > 0 ? round(($delta / $lastValue) * 100) : 0;
+            $stats[$key] = [
+                'current' => $currentValue,
+                'last' => $lastValue,
+                'delta' => $delta,
+                'percentage' => $percentage,
+                'is_positive' => $delta >= 0,
+                'has_change' => $lastValue > 0
+            ];
+        }
+
+        return $stats;
+    }
+
     public function index(Request $request)
     {
         try {
-            // Get current and previous month dates
-            $currentMonthStart = now()->startOfMonth();
-            $currentMonthEnd = now()->endOfMonth();
-            $lastMonthStart = now()->subMonth()->startOfMonth();
-            $lastMonthEnd = now()->subMonth()->endOfMonth();
-
-            // Get current month stats
-            $currentStats = [
-                'total_courses' => $this->getTotalCourses($currentMonthEnd),
-                'active_courses' => $this->getActiveCourses($currentMonthEnd),
-                'new_courses' => $this->getNewCourses($currentMonthStart, $currentMonthEnd),
-                'pdc_courses' => $this->getPdcCourses($currentMonthEnd),
-                'courses_without_enrollments' => $this->getCoursesWithoutEnrollments($currentMonthEnd)
-            ];
-
-            // Get last month stats
-            $lastMonthStats = [
-                'total_courses' => $this->getTotalCourses($lastMonthEnd),
-                'active_courses' => $this->getActiveCourses($lastMonthEnd),
-                'new_courses' => $this->getNewCourses($lastMonthStart, $lastMonthEnd),
-                'pdc_courses' => $this->getPdcCourses($lastMonthEnd),
-                'courses_without_enrollments' => $this->getCoursesWithoutEnrollments($lastMonthEnd)
-            ];
-
-            // Calculate deltas and percentages
-            $stats = [];
-            foreach ($currentStats as $key => $currentValue) {
-                $lastValue = $lastMonthStats[$key] ?? 0;
-                $delta = $currentValue - $lastValue;
-                $percentage = $lastValue > 0 ? round(($delta / $lastValue) * 100) : 0;
-                $stats[$key] = [
-                    'current' => $currentValue,
-                    'last' => $lastValue,
-                    'delta' => $delta,
-                    'percentage' => $percentage,
-                    'is_positive' => $delta >= 0,
-                    'has_change' => $lastValue > 0
-                ];
-            }
-
-            // Handle courses table with pagination, search, and sorting
-            $perPage = 10;
-            $search = $request->input('search');
-            $sortBy = $request->input('sort_by', 'fullname');
-            $sortDir = $request->input('sort_dir', 'asc');
-
-            // Base query for all courses
-            $query = DB::table('mdl_course as c')
-                ->select(
-                    'c.id',
-                    'c.fullname as course_name',
-                    'c.visible',
-                    DB::raw('(SELECT COUNT(DISTINCT ue.userid) 
-                             FROM mdl_enrol e 
-                             JOIN mdl_user_enrolments ue ON e.id = ue.enrolid 
-                             JOIN mdl_role_assignments ra ON ra.userid = ue.userid 
-                             JOIN mdl_role r ON ra.roleid = r.id 
-                             WHERE e.courseid = c.id AND r.shortname = "student") as student_count'),
-                    DB::raw('(SELECT COUNT(DISTINCT ue.userid) 
-                             FROM mdl_enrol e 
-                             JOIN mdl_user_enrolments ue ON e.id = ue.enrolid 
-                             JOIN mdl_role_assignments ra ON ra.userid = ue.userid 
-                             JOIN mdl_role r ON ra.roleid = r.id 
-                             WHERE e.courseid = c.id AND r.shortname IN ("editingteacher", "teacher")) as instructor_count')
-                )
-                ->where('c.id', '!=', 1); // Skip the front page
-
-            // Apply search filter
-            if ($search) {
-                $query->where('c.fullname', 'LIKE', "%{$search}%");
-            }
-
-            // Apply sorting
-            $sortableColumns = [
-                'id' => 'c.id',
-                'course_name' => 'c.fullname',
-                'student_count' => 'student_count',
-                'instructor_count' => 'instructor_count',
-                'visible' => 'c.visible'
-            ];
-
-            if (array_key_exists($sortBy, $sortableColumns)) {
-                $query->orderBy($sortableColumns[$sortBy], $sortDir === 'desc' ? 'desc' : 'asc');
-            }
-
-            // Get paginated results
-            $allCourses = $query->paginate($perPage)
-                ->appends([
-                    'search' => $search,
-                    'sort_by' => $sortBy,
-                    'sort_dir' => $sortDir
-                ]);
-
-            // Get top 10 most enrolled courses
-            $topEnrolledCourses = DB::table('mdl_course as c')
-                ->select(
-                    'c.id',
-                    'c.fullname as course_name',
-                    'c.visible',
-                    DB::raw('COUNT(ue.id) as enrollment_count')
-                )
-                ->leftJoin('mdl_enrol as e', 'c.id', '=', 'e.courseid')
-                ->leftJoin('mdl_user_enrolments as ue', 'e.id', '=', 'ue.enrolid')
-                ->where('c.id', '!=', 1) // Skip the front page
-                ->where('c.visible', 1) // Only visible courses
-                ->groupBy('c.id', 'c.fullname', 'c.visible')
-                ->orderByDesc('enrollment_count')
-                ->take(10)
-                ->get();
-                
-            // Get bottom 10 least enrolled courses
-            $leastEnrolledCourses = DB::table('mdl_course as c')
-                ->select(
-                    'c.id',
-                    'c.fullname as course_name',
-                    'c.visible',
-                    DB::raw('COUNT(ue.id) as enrollment_count')
-                )
-                ->leftJoin('mdl_enrol as e', 'c.id', '=', 'e.courseid')
-                ->leftJoin('mdl_user_enrolments as ue', 'e.id', '=', 'ue.enrolid')
-                ->where('c.id', '!=', 1) // Skip the front page
-                ->where('c.visible', 1) // Only visible courses
-                ->groupBy('c.id', 'c.fullname', 'c.visible')
-                ->having('enrollment_count', '>', 0) // Only include courses with at least one enrollment
-                ->orderBy('enrollment_count')
-                ->take(10)
-                ->get();
-
+            // Get dashboard statistics
+            $stats = $this->getDashboardStats();
+            
+            // Get paginated courses with search and sort
+            $allCourses = $this->getPaginatedCourses($request);
+            
+            // Get top and least enrolled courses
+            $topEnrolledCourses = $this->getEnrolledCourses(10, 'desc');
+            $leastEnrolledCourses = $this->getEnrolledCourses(10, 'asc');
+            
             // Get recently modified courses
-            $recentlyModified = DB::table('mdl_course')
-                ->select('id', 'fullname', 'shortname', 'timemodified')
-                ->where('id', '!=', 1) // Skip the front page
-                ->orderBy('timemodified', 'desc')
-                ->take(10)
-                ->get()
-                ->map(function ($course) {
-                    $course->last_modified = $course->timemodified 
-                        ? Carbon::createFromTimestamp($course->timemodified)->diffForHumans()
-                        : 'Never';
-                    return $course;
-                });
-
-            // Get course creation stats by month for the current year
-            $creationStats = DB::table('mdl_course')
-                ->select(
-                    DB::raw('FROM_UNIXTIME(timecreated, "%Y-%m") as month'),
-                    DB::raw('COUNT(*) as count')
-                )
-                ->where('id', '!=', 1) // Skip the front page
-                ->whereRaw('YEAR(FROM_UNIXTIME(timecreated)) = ?', [now()->year])
-                ->groupBy('month')
-                ->orderBy('month')
-                ->get();
-
-            // Get courses per category
+            $recentlyModified = $this->getRecentlyModified(10);
+            
+            // Get course creation stats and categories
+            $creationStats = $this->getCreationStats();
             $coursesPerCategory = $this->getCoursesPerCategory();
 
             return view('courses.index', [
@@ -176,9 +202,9 @@ class CoursesController extends Controller
                 'creationStats' => $creationStats,
                 'coursesPerCategory' => $coursesPerCategory,
                 'allCourses' => $allCourses,
-                'search' => $search,
-                'sortBy' => $sortBy,
-                'sortDir' => $sortDir
+                'search' => $request->input('search'),
+                'sortBy' => $request->input('sort_by', 'fullname'),
+                'sortDir' => $request->input('sort_dir', 'asc')
             ]);
 
         } catch (\Exception $e) {

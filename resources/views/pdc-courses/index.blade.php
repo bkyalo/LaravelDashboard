@@ -2,6 +2,43 @@
 
 @push('styles')
 <style>
+    /* Pagination Styles */
+    .pagination {
+        display: flex;
+        padding: 0;
+        list-style: none;
+        margin: 0;
+    }
+
+    .pagination .page-item {
+        margin: 0 3px;
+    }
+
+    .pagination .page-item .page-link {
+        color: #037b90;
+        border-radius: 5px;
+        border: 1px solid #037b90;
+        padding: 8px 12px;
+        transition: all 0.3s;
+        text-decoration: none;
+    }
+
+    .pagination .page-item.active .page-link {
+        background-color: #037b90;
+        color: white;
+        border: 1px solid #037b90;
+    }
+
+    .pagination .page-item.disabled .page-link {
+        color: #aaa;
+        cursor: not-allowed;
+        border-color: #dee2e6;
+    }
+    
+    .pagination .page-link:hover:not(.disabled) {
+        background-color: #f8f9fa;
+    }
+
     /* Card Styles */
     .table-card {
         background: #fff;
@@ -262,15 +299,86 @@
                 </div>
                 
                 @if($pdcCourses->hasPages())
-                <div class="card-footer d-flex flex-column flex-md-row justify-content-between align-items-center p-4">
-                    <div class="pagination-info mb-3 mb-md-0">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Showing <span class="fw-semibold">{{ $pdcCourses->firstItem() }}</span> to 
-                        <span class="fw-semibold">{{ $pdcCourses->lastItem() }}</span> of 
-                        <span class="fw-semibold">{{ $pdcCourses->total() }}</span> PDC courses
-                    </div>
-                    <div class="pagination-container">
-                        {{ $pdcCourses->withQueryString()->onEachSide(1)->links() }}
+                <div class="card-footer bg-white border-top-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="text-muted">
+                            Showing <span class="fw-semibold">{{ $pdcCourses->firstItem() }}</span> to 
+                            <span class="fw-semibold">{{ $pdcCourses->lastItem() }}</span> of 
+                            <span class="fw-semibold">{{ $pdcCourses->total() }}</span> PDC courses
+                        </div>
+                        <nav>
+                            <ul class="pagination mb-0">
+                                {{-- Previous Page Link --}}
+                                @if ($pdcCourses->onFirstPage())
+                                    <li class="page-item disabled">
+                                        <span class="page-link">« Prev</span>
+                                    </li>
+                                @else
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ $pdcCourses->previousPageUrl() }}&{{ http_build_query(request()->except('page')) }}" rel="prev">« Prev</a>
+                                    </li>
+                                @endif
+
+                                {{-- Page Number Links --}}
+                                @php
+                                    $currentPage = $pdcCourses->currentPage();
+                                    $lastPage = $pdcCourses->lastPage();
+                                    $startPage = max(1, $currentPage - 2);
+                                    $endPage = min($lastPage, $currentPage + 2);
+                                    
+                                    // Adjust if we're near the start
+                                    if ($currentPage <= 3) {
+                                        $endPage = min(5, $lastPage);
+                                    }
+                                    // Adjust if we're near the end
+                                    if (($lastPage - $currentPage) < 2) {
+                                        $startPage = max(1, $lastPage - 4);
+                                    }
+                                @endphp
+
+                                {{-- First Page Link --}}
+                                @if($startPage > 1)
+                                    <li class="page-item {{ 1 == $currentPage ? 'active' : '' }}">
+                                        <a class="page-link" href="{{ $pdcCourses->url(1) }}&{{ http_build_query(request()->except('page')) }}">1</a>
+                                    </li>
+                                    @if($startPage > 2)
+                                        <li class="page-item disabled">
+                                            <span class="page-link">...</span>
+                                        </li>
+                                    @endif
+                                @endif
+
+                                {{-- Page Numbers --}}
+                                @for ($page = $startPage; $page <= $endPage; $page++)
+                                    <li class="page-item {{ $page == $currentPage ? 'active' : '' }}">
+                                        <a class="page-link" href="{{ $pdcCourses->url($page) }}&{{ http_build_query(request()->except('page')) }}">{{ $page }}</a>
+                                    </li>
+                                @endfor
+
+                                {{-- Last Page Link --}}
+                                @if($endPage < $lastPage)
+                                    @if($endPage < $lastPage - 1)
+                                        <li class="page-item disabled">
+                                            <span class="page-link">...</span>
+                                        </li>
+                                    @endif
+                                    <li class="page-item {{ $lastPage == $currentPage ? 'active' : '' }}">
+                                        <a class="page-link" href="{{ $pdcCourses->url($lastPage) }}&{{ http_build_query(request()->except('page')) }}">{{ $lastPage }}</a>
+                                    </li>
+                                @endif
+
+                                {{-- Next Page Link --}}
+                                @if ($pdcCourses->hasMorePages())
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ $pdcCourses->nextPageUrl() }}&{{ http_build_query(request()->except('page')) }}" rel="next">Next »</a>
+                                    </li>
+                                @else
+                                    <li class="page-item disabled">
+                                        <span class="page-link">Next »</span>
+                                    </li>
+                                @endif
+                            </ul>
+                        </nav>
                     </div>
                 </div>
                 @endif

@@ -215,60 +215,43 @@
         height: 600px; /* Increased from 400px */
         margin-bottom: 2rem;
     }
-
+    
     /* Pagination Styles */
     .pagination {
         display: flex;
         padding: 0;
         list-style: none;
         margin: 0;
-        border-radius: 6px;
-        overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        gap: 0.5rem;
     }
 
     .pagination .page-item {
-        margin: 0;
-    }
-
-    .pagination .page-item:not(:first-child) .page-link {
-        margin-left: -1px;
-        border-top-left-radius: 0;
-        border-bottom-left-radius: 0;
-    }
-
-    .pagination .page-item:not(:last-child) .page-link {
-        border-top-right-radius: 0;
-        border-bottom-right-radius: 0;
+        margin: 0 3px;
     }
 
     .pagination .page-item .page-link {
         color: #037b90;
-        border: 1px solid #e2e8f0;
+        border-radius: 5px;
+        border: 1px solid #037b90;
         padding: 8px 12px;
-        transition: all 0.2s ease;
+        transition: all 0.3s;
         text-decoration: none;
-        background: white;
-        position: relative;
     }
 
     .pagination .page-item.active .page-link {
         background-color: #037b90;
         color: white;
-        border-color: #037b90;
-        z-index: 1;
+        border: 1px solid #037b90;
     }
 
     .pagination .page-item.disabled .page-link {
-        color: #cbd5e1;
-        background-color: #f8fafc;
+        color: #aaa;
         cursor: not-allowed;
-        border-color: #e2e8f0;
+        border-color: #dee2e6;
     }
     
-    .pagination .page-link:not(.disabled):hover {
-        background-color: #f1f5f9;
-        z-index: 2;
+    .pagination .page-link:hover:not(.disabled) {
+        background-color: #f8f9fa;
     }
     
     .page-link {
@@ -1030,44 +1013,6 @@ $(document).ready(function() {
                         </tbody>
                     </table>
                 </div>
-                @if($allCourses->hasPages())
-                    <div class="card-footer bg-white border-top-0 d-flex justify-content-center">
-                        <nav>
-                            <ul class="pagination mb-0">
-                                {{-- Previous Page Link --}}
-                                @if ($allCourses->onFirstPage())
-                                    <li class="page-item disabled">
-                                        <span class="page-link">« Prev</span>
-                                    </li>
-                                @else
-                                    <li class="page-item">
-                                        <a class="page-link" href="{{ $allCourses->previousPageUrl() }}&{{ http_build_query(request()->except('page')) }}" rel="prev">« Prev</a>
-                                    </li>
-                                @endif
-
-                                {{-- Page Number Links --}}
-                                @for ($page = 1; $page <= $allCourses->lastPage(); $page++)
-                                    <li class="page-item {{ $page == $allCourses->currentPage() ? 'active' : '' }}">
-                                        <a class="page-link"
-                                            href="{{ $allCourses->url($page) }}&{{ http_build_query(request()->except('page')) }}">{{ $page }}</a>
-                                    </li>
-                                @endfor
-
-                                {{-- Next Page Link --}}
-                                @if ($allCourses->hasMorePages())
-                                    <li class="page-item">
-                                        <a class="page-link" href="{{ $allCourses->nextPageUrl() }}&{{ http_build_query(request()->except('page')) }}" rel="next">Next »</a>
-                                    </li>
-                                @else
-                                    <li class="page-item disabled">
-                                        <span class="page-link">Next »</span>
-                                    </li>
-                                @endif
-                            </ul>
-                        </nav>
-                    </div>
-                @endif
-
             </div>
         </div>
     </div>
