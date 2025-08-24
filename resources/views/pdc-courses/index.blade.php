@@ -211,7 +211,7 @@
                                         <i class="bi {{ request('sort_by') === 'course_name' && request('sort_dir') === 'asc' ? 'bi-sort-up' : 'bi-sort-down' }}"></i>
                                     </a>
                                 </th>
-                                <th scope="col">Short Name</th>
+                                <th scope="col">Category</th>
                                 <th scope="col" class="text-center">Students</th>
                                 <th scope="col" class="text-center">Instructors</th>
                                 <th scope="col" class="text-center">Total</th>
@@ -223,7 +223,7 @@
                             <tr>
                                 <td class="ps-4">{{ $pdcCourses->firstItem() + $index }}</td>
                                 <td>{{ $course->course_name }}</td>
-                                <td>{{ $course->shortname }}</td>
+                                <td>{{ $course->category_name ?? 'Uncategorized' }}</td>
                                 <td class="text-center">
                                     <span class="badge bg-primary bg-opacity-10 text-primary">
                                         {{ number_format($course->student_count) }}
@@ -361,7 +361,7 @@
                         <thead>
                             <tr>
                                 <th scope="col">Course Name</th>
-                                <th scope="col">Short Name</th>
+                                <th scope="col">Category</th>
                                 <th scope="col">Last Modified</th>
                             </tr>
                         </thead>
@@ -369,7 +369,7 @@
                             @forelse($recentlyModified as $course)
                             <tr>
                                 <td>{{ $course->fullname }}</td>
-                                <td>{{ $course->shortname }}</td>
+                                <td>{{ $course->category_name ?? 'Uncategorized' }}</td>
                                 <td class="text-nowrap">
                                     <i class="bi bi-clock-history me-1 text-muted"></i>
                                     {{ $course->last_modified }}

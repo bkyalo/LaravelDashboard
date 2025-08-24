@@ -59,10 +59,11 @@ class PdcCoursesController extends Controller
             $perPage = 15;
             
             $query = DB::table('mdl_course as c')
+                ->leftJoin('mdl_course_categories as cc', 'c.category', '=', 'cc.id')
                 ->select(
                     'c.id',
                     'c.fullname as course_name',
-                    'c.shortname',
+                    'cc.name as category_name',
                     'c.visible',
                     'c.timecreated',
                     'c.timemodified',
@@ -80,7 +81,10 @@ class PdcCoursesController extends Controller
                              WHERE e.courseid = c.id AND r.shortname IN ("editingteacher", "teacher")) as instructor_count')
                 )
                 ->where('c.id', '!=', 1)
-                ->where('c.shortname', 'LIKE', '%PDC%');
+                ->where(function($query) {
+                    $query->where('cc.name', 'LIKE', '%PDC%')
+                          ->orWhere('c.shortname', 'LIKE', '%PDC%');
+                });
 
             // Apply search filter
             if ($search) {
@@ -94,7 +98,7 @@ class PdcCoursesController extends Controller
             $sortableColumns = [
                 'id' => 'c.id',
                 'course_name' => 'c.fullname',
-                'shortname' => 'c.shortname',
+                'category_name' => 'cc.name',
                 'student_count' => 'student_count',
                 'instructor_count' => 'instructor_count',
                 'visible' => 'c.visible',
@@ -127,7 +131,10 @@ class PdcCoursesController extends Controller
                 )
                 ->where('c.id', '!=', 1)
                 ->where('c.visible', 1)
-                ->where('c.shortname', 'LIKE', '%PDC%')
+                ->where(function($query) {
+                    $query->where('cc.name', 'LIKE', '%PDC%')
+                          ->orWhere('c.shortname', 'LIKE', '%PDC%');
+                })
                 ->orderBy('enrollment_count', 'desc')
                 ->take(5)
                 ->get();
@@ -137,19 +144,27 @@ class PdcCoursesController extends Controller
                 ->leftJoin('mdl_enrol as e', 'c.id', '=', 'e.courseid')
                 ->leftJoin('mdl_user_enrolments as ue', 'e.id', '=', 'ue.enrolid')
                 ->select('c.id', 'c.fullname as course_name', 'c.shortname')
+                ->leftJoin('mdl_course_categories as cc', 'c.category', '=', 'cc.id')
                 ->where('c.id', '!=', 1)
-                ->where('c.shortname', 'LIKE', '%PDC%')
+                ->where(function($query) {
+                    $query->where('cc.name', 'LIKE', '%PDC%')
+                          ->orWhere('c.shortname', 'LIKE', '%PDC%');
+                })
                 ->groupBy('c.id', 'c.fullname', 'c.shortname')
                 ->havingRaw('COUNT(ue.id) = 0')
                 ->orderBy('c.fullname')
                 ->get();
 
             // Get recently modified PDC courses
-            $recentlyModified = DB::table('mdl_course')
-                ->select('id', 'fullname', 'shortname', 'timemodified')
-                ->where('id', '!=', 1)
-                ->where('shortname', 'LIKE', '%PDC%')
-                ->orderBy('timemodified', 'desc')
+            $recentlyModified = DB::table('mdl_course as c')
+                ->leftJoin('mdl_course_categories as cc', 'c.category', '=', 'cc.id')
+                ->select('c.id', 'c.fullname', 'c.shortname', 'c.timemodified', 'cc.name as category_name')
+                ->where('c.id', '!=', 1)
+                ->where(function($query) {
+                    $query->where('cc.name', 'LIKE', '%PDC%')
+                          ->orWhere('c.shortname', 'LIKE', '%PDC%');
+                })
+                ->orderBy('c.timemodified', 'desc')
                 ->take(5)
                 ->get()
                 ->map(function ($course) {
