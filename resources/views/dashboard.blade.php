@@ -391,7 +391,7 @@
 @section('content')
     <div class="dashboard">
         <div class="dashboard-header">
-            <h1>Moodle Analytics Dashboard</h1>
+            <h1>SOMAS Dashboard</h1>
             <div class="last-updated">Last updated: {{ now()->format('M d, Y H:i:s') }}</div>
         </div>
         

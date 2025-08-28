@@ -3,7 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', 'Moodle Dashboard')</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>@yield('title', 'SOMAS Dashboard')</title>
     
     <!-- Favicons -->
     <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('dashboard-16.png') }}">
@@ -22,6 +23,10 @@
     
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
 
     <!-- Custom Styles -->
     <style>
@@ -168,7 +173,7 @@
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <h3>Moodle Admin</h3>
+            <h3>SOMAS</h3>
         </div>
         <nav class="sidebar-menu">
             <a href="{{ route('dashboard.index') }}" class="nav-link {{ request()->routeIs('dashboard.*') ? 'active' : '' }}">
@@ -185,11 +190,15 @@
             </a>
             <a href="{{ route('courses.time-vs-grades') }}" class="nav-link {{ request()->routeIs('courses.time-vs-grades') ? 'active' : '' }}">
                 <i class="bi bi-graph-up-arrow me-2"></i>
-                <span>Time vs. Grades</span>
+                <span>Time vs. Students</span>
             </a>
             <a href="{{ route('pdc-courses.index') }}" class="nav-link {{ request()->routeIs('pdc-courses.*') ? 'active' : '' }}">
                 <i class="bi bi-journal-bookmark"></i>
                 <span>PDC Courses</span>
+            </a>
+            <a href="{{ route('student-search.index') }}" class="nav-link {{ request()->routeIs('student-search.*') ? 'active' : '' }}">
+                <i class="bi bi-search"></i>
+                <span>Student Search</span>
             </a>
             <a href="#" class="nav-link">
                 <i class="bi bi-mortarboard"></i>
@@ -207,9 +216,14 @@
         @yield('content')
     </main>
 
-    <!-- Bootstrap JS and Popper.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+    <!-- jQuery (required for Select2) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Bootstrap 5 JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     
     <!-- Custom Scripts -->
     <script>

@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\CoursesController;
+use App\Http\Controllers\PdcCoursesController;
+use App\Http\Controllers\StudentSearchController;
 
 /*
 |--------------------------------------------------------------------------
@@ -31,5 +33,11 @@ Route::get('/courses/data', [CoursesController::class, 'getCoursesData'])->name(
 Route::get('/courses/time-vs-grades', [CoursesController::class, 'timeVsGrades'])->name('courses.time-vs-grades');
 
 // PDC Courses Management
-use App\Http\Controllers\PdcCoursesController;
 Route::get('/pdc-courses', [PdcCoursesController::class, 'index'])->name('pdc-courses.index');
+
+// Student Search
+Route::prefix('student-search')->group(function () {
+    Route::get('/', [StudentSearchController::class, 'index'])->name('student-search.index');
+    Route::get('/courses', [StudentSearchController::class, 'getCourses'])->name('student-search.courses');
+    Route::match(['get', 'post'], '/search', [StudentSearchController::class, 'search'])->name('student-search.search');
+});
